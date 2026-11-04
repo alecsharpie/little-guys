@@ -31,7 +31,7 @@ const tab = await browser.newPage({ viewport: { width: W, height: H } });
 const errors = [];
 tab.on('pageerror', e => errors.push(String(e)));
 tab.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-await tab.goto(`http://localhost:${port}/${page}`);
+await tab.goto(/^https?:/.test(page) ? page : `http://localhost:${port}/${page}`);
 await tab.waitForTimeout(wait);
 if (opt('eval')) { await tab.evaluate(opt('eval')); await tab.waitForTimeout(+opt('after', 600)); }
 if (opt('print')) console.log(JSON.stringify(await tab.evaluate(opt('print'))));
