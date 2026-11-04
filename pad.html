@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#1d2a14">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Little Guys">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
 <title>Little Guys · Controller</title>
 <link rel="stylesheet" href="shared/theme.css">
 <style>
@@ -58,6 +63,10 @@
   .form input.code { letter-spacing: .25em; text-transform: uppercase; font-weight: 900; }
   .form .btn { min-height: 64px; font-size: 22px; }
   .note { color: var(--ink-2); font-size: 15px; }
+  #pad, #pad * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+  .tip { position: fixed; left: 50%; bottom: calc(6px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 5; display: flex; gap: 8px; align-items: center;
+    padding: 6px 8px 6px 12px; border-radius: 12px; background: rgba(20,30,10,.92); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+  .tip b { color: var(--ink); } .tip button { border: 0; background: var(--panel); border-radius: 8px; padding: 4px 9px; font-weight: 900; }
   .turn { display: none; position: absolute; left: 0; right: 0; top: 44%; text-align: center; color: var(--ink-2); font-size: 14px; font-weight: 700; pointer-events: none; }
   @media (orientation: portrait) {
     .ctl { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
@@ -94,6 +103,7 @@
     <div id="msg"></div>
     <div class="shout" id="shout"></div>
   </div>
+  <div id="tip" class="tip hidden"><span>Tabs in the way? <b>aA → Hide Toolbar</b>, or <b>Share → Add to Home Screen</b> for full screen</span><button id="tipx">✕</button></div>
   <div id="card" class="hidden"><div><div id="cardmsg" class="big"></div><button id="cardready" class="btn go hidden">Ready</button></div></div>
 </div>
 <script type="module">
@@ -277,8 +287,12 @@ const up = e => {
   if (e.pointerId === btnId) { btnId = null; setButton(false); }
 };
 addEventListener('pointerup', up); addEventListener('pointercancel', up);
-document.addEventListener('touchmove', e => { if (!e.target.closest('input')) e.preventDefault(); }, { passive: false });
-document.addEventListener('gesturestart', e => e.preventDefault());
+// iOS Safari ignores user-scalable=no: without this, a quick double tap zooms the page and a long press selects text
+// and pops the magnifier. Cancelling the touches themselves stops all three; pointer events still arrive. The join
+// form is left alone so its text boxes and button work normally.
+const ours = e => !e.target.closest('#join');
+for (const t of ['touchstart', 'touchmove', 'touchend']) document.addEventListener(t, e => { if (ours(e) && e.cancelable) e.preventDefault(); }, { passive: false });
+for (const t of ['gesturestart', 'gesturechange', 'dblclick', 'contextmenu', 'selectstart']) document.addEventListener(t, e => { if (ours(e)) e.preventDefault(); }, { passive: false });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { stickId = btnId = null; jx = jy = 0; held = false; push(true); rest(); } });
 addEventListener('resize', rest); requestAnimationFrame(rest);
 
@@ -314,6 +328,10 @@ addEventListener('keyup', e => {
   if (KEYV[e.key]) { keys.delete(e.key); fromKeys(); }
   else if (e.key === ' ') setButton(false);
 });
+const IOS = /iPhone|iPod/.test(navigator.userAgent) && !navigator.standalone && !matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+function tip() { $('tip').classList.toggle('hidden', !(IOS && net && innerWidth > innerHeight && !load('littleguys-tip-off', false))); }
+$('tipx').addEventListener('pointerdown', e => { e.stopPropagation(); save('littleguys-tip-off', true); tip(); });
+addEventListener('resize', tip); setInterval(tip, 2000);
 if (param('auto') != null) start();
 // dev.html drives this for bots
 window.lgPad = { set(x, y, b) { jx = x; jy = y; if (!!b !== held) setButton(!!b); else push(); }, ready: sendReady, get seat() { return seat; } };

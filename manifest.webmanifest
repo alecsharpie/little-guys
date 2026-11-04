@@ -1,0 +1,9 @@
+{
+  "name": "Little Guys",
+  "short_name": "Little Guys",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1d2a14",
+  "theme_color": "#1d2a14",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}
