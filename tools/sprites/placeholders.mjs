@@ -13,6 +13,10 @@ const IDS = {
   beetle: [12, 10, { walk: 4, munch: 2 }, 'b'], snail: [16, 12, { walk: 4, munch: 2, hide: 1 }, 'n'], hopper: [16, 11, { hop: 4, munch: 2 }, 'h'],
   stag: [18, 14, { walk: 4, munch: 2 }, 'm'], stinkbug: [12, 10, { walk: 4, munch: 2, fly: 2 }, 'u'], queen: [36, 28, { walk: 4, munch: 2, roar: 2 }, 'q'],
   ladybug: [11, 9, { fly: 2, walk: 2 }, 'r'], weed: [10, 12, { idle: 2 }, 'g'],
+  ui_icons: [12, 12, { heart: 1, heart_empty: 1, drop: 1, flame: 1, medal_gold: 1, medal_silver: 1, medal_bronze: 1, trophy: 1, crown: 1, bolt: 1, cloud_rain: 1, mushroom: 1, bloom: 1, bee: 1, seedling: 1, wilted: 1, check: 1, cross: 1, speaker_on: 1, speaker_off: 1, stick: 1, tap: 1, hold: 1, spin: 1, zzz: 1, swirl: 1, rake: 1, watering_can: 1, bowling_pin: 1, stink: 1, friends: 1, boot: 1, phone_landscape: 1, qr: 1, star: 1, clock: 1, arrow_right: 1 }, 'y'],
+  ui_panel: [24, 24, { idle: 1 }, 'w', 'tl'], ui_paper: [24, 24, { idle: 1 }, 'W', 'tl'], ui_button: [18, 18, { up: 1, down: 1 }, 'g', 'tl'], ui_button_gold: [18, 18, { up: 1, down: 1 }, 'y', 'tl'],
+  ui_chip: [12, 12, { idle: 1 }, 's', 'tl'], pad_button: [48, 50, { up: 1, down: 1 }, 'T', 'c'], pad_ring: [52, 52, { seg: 16 }, 'W', 'c'], pad_base: [40, 40, { idle: 1 }, 'k', 'c'], pad_knob: [22, 22, { idle: 1 }, 'T', 'c'],
+  logo: [128, 40, { idle: 1 }, 'y'],
   fx_poof: [16, 16, { idle: 5 }, 'W', 'c'], fx_stink: [32, 22, { idle: 4 }, 'u', 'c'], fx_sparkle: [7, 7, { idle: 4 }, 'y', 'c'], fx_star: [5, 5, { idle: 4 }, 'y', 'c'],
   fx_bee: [7, 6, { fly: 2 }, 'y', 'c'], fx_drop: [3, 5, { drop: 1, splash: 3 }, 'B', 'c'],
 };

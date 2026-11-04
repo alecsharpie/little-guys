@@ -1,7 +1,8 @@
 // hopper 16×11: a chartreuse grasshopper with olive folded wings, a big drumstick hind femur with its coral shin folded
 // under it, a large glossy eye and swept-back antennae. Hand-painted frames. hop 4 (crouch, launch, airborne with the
 // legs streaming back and the rose hindwings flashing, land), munch 2. Anchor = ground point under the body.
-import { emit, grid, stamp, line, put, get, shift, over } from './kit.mjs';
+import { emit, grid, stamp, line, put, get, shift, over, flipX, flipY } from './kit.mjs';
+import { squash, shock } from './react.mjs';
 
 const PAL = {
   a: '#f2f08a', // body light
@@ -93,14 +94,40 @@ function munch(k) {
   } else { put(g, 15, 9, 'g'); put(g, 14, 10, 'G'); }
   return g;
 }
+const findEye = g => { for (let y = 0; y < g.length; y++) for (let x = 0; x < g[0].length; x++) if (g[y][x] === 'E') return [x, y]; return null; };
+// hurt: body squashed, hind leg kicked straight out behind, front legs splayed, eye squeezed shut, OOF ticks
+function hurt(k) {
+  let g = squash(g0(), k ? [] : [5], 0);
+  const e = findEye(g);
+  if (e) { const [x, y] = e; g[y][x] = 'o'; g[y][x + 1] = 'o'; g[y + 1][x] = 'b'; g[y + 1][x + 1] = 'b'; }
+  g = leg(g, [9, 8], [4, 8 - k], [1, 9], [0, 10]);
+  line(g, 11, 9, 13, 10, 'd'); line(g, 10, 9, 8, 10, 'd'); put(g, 14, 10, 'o');
+  shock(g, 12, k ? 2 : 3, 'E');
+  return g;
+}
+// dead: tumbling upside down with its legs everywhere (alternates belly-up and spun round), eye X'd
+function dead(k) {
+  const st = grid(16, 11); stamp(st, 0, 0, STAND);
+  const e = findEye(st); if (e) { const [x, y] = e; st[y][x] = 'o'; st[y + 1][x + 1] = 'o'; st[y][x + 1] = 'a'; st[y + 1][x] = 'a'; }
+  let g = flipY(st);
+  if (k) g = flipX(g);
+  // a flailing hind leg and front legs thrown out
+  const L = grid(16, 11);
+  if (k) { line(L, 9, 3, 13, 0, 'r'); line(L, 5, 2, 3, 0, 'd'); }
+  else { line(L, 7, 3, 3, 0, 'r'); line(L, 11, 2, 14, 0, 'd'); }
+  return over(g, L, 0, 0, true);
+}
+
 export default function run() {
   return emit('hopper', 'chartreuse grasshopper with coral shins', {
     anchor: [8, 11],
     palette: PAL,
-    fps: { hop: 10 },
+    fps: { hop: 10, hurt: 14, dead: 14 },
     frames: {
       hop: [CROUCH, launch(), air(), land()],
       munch: [munch(0), munch(1)],
+      hurt: [hurt(0), hurt(1)],
+      dead: [dead(0), dead(1)],
     },
   });
 }

@@ -16,7 +16,7 @@ export const GROW = 26;                           // seconds for a thriving bed 
 
 // the gardener
 export const SPEED = 3.4, ACCEL = 16, R = 0.26;
-export const BONK_RANGE = 0.82, BONK_COS = 0.3, BONK_CD = 0.24, BONK_KNOCK = 4.6;
+export const BONK_RANGE = 0.82, BONK_COS = 0.3, BONK_CD = 0.24, BONK_KNOCK = 4.6, BONK_ANIM = 0.3;
 export const HOLD_DELAY = 0.16, CHARGE_TIME = 0.7, MIN_CHARGE = 0.3, CHARGE_SLOW = 0.4;
 export const SPIN_TIME = 0.32, WATER_EVERY = 0.85;
 export const MULTI_WINDOW = 0.7, BOWL_SPEED = 2.4;
@@ -34,12 +34,13 @@ export const KINDS = {
   weed:     { hp: 1, speed: 0,    r: 0.22, points: 10,  from: 99, weight: 0, friend: true },
 };
 export const HOSTILE = k => !KINDS[k].friend;
+// What the TV says when a pest first turns up (it shows the pest's own sprite next to the line).
 export const INTRO = {
-  hopper: '🦗 Grasshoppers: quick and jumpy',
-  ladybug: '🐞 Ladybugs are friends: catch one for a power-up!',
-  stag: '🪲 Stag beetles: armoured! Bonks bounce off. HOLD to charge a spin',
-  stinkbug: '💨 Stinkbugs: bonk them into a crowd. Mind the cloud!',
-  snail: '🐌 Snails: slow, but tough',
+  hopper: 'Grasshoppers! Quick and jumpy.',
+  ladybug: 'Ladybugs are friends. Catch one for a power-up.',
+  stag: 'Stag beetles! Bonks bounce off the armour. Hold to spin.',
+  stinkbug: 'Stinkbugs! Bonk one into a crowd, then stand clear.',
+  snail: 'Snails! Slow, but they take a beating.',
 };
 export const POWERS = ['rain', 'bees', 'giant', 'bloom'];
 
@@ -51,7 +52,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export function newPlayer(name = '', x = 8, y = 4.7) {
   return { name, x, y, vx: 0, vy: 0, fx: 1, fy: 0, ix: 0, iy: 0, btn: false, on: true,
-    cd: 0, bonkT: 0, holding: false, holdT: 0, charge: 0, mode: '', spinT: 0, spinR: 0, spinDmg: 0, spinHit: null, waterT: 0,
+    cd: 0, bonkT: 0, hurtT: 0, pluckT: 0, holding: false, holdT: 0, charge: 0, mode: '', spinT: 0, spinR: 0, spinDmg: 0, spinHit: null, waterT: 0,
     stun: 0, inv: 0, giantT: 0, moving: 0,
     score: 0, combo: 0, comboT: 0, best: 0, kills: 0, hits: 0, spinKills: 0, boomKills: 0, waters: 0, harvests: 0,
     wakes: 0, gifts: 0, ouches: 0, dist: 0, bonks: 0, bowled: 0, multi: 0, multiT: 0, bestMulti: 0, ev: 0, last: '' };
@@ -186,7 +187,7 @@ const mult = p => 1 + Math.min(2, Math.floor(p.combo / 10) * 0.5);
 
 function bonk(G, s, p) {
   if (p.cd > 0) return;
-  p.cd = BONK_CD; p.bonkT = 0.22; p.bonks++;
+  p.cd = BONK_CD; p.bonkT = BONK_ANIM; p.bonks++;
   const big = p.giantT > 0, range = BONK_RANGE * (big ? 1.7 : 1);
   let hits = 0;
   for (const e of G.enemies) {
@@ -208,7 +209,7 @@ function bonk(G, s, p) {
   // a ripe bed under your feet, or in front of you
   const pl = standingIn(G, p) || plotAt(G, p.x + p.fx * 0.5, p.y + p.fy * 0.5);
   if (pl && pl.hp > 0 && pl.g >= 1 && G.phase !== 'lobby' && G.phase !== 'over') {
-    pl.g = 0; p.harvests++; p.score += 150; evt(p, 'harvest'); G.log.push(['harvest', s, pl.i]);
+    pl.g = 0; p.harvests++; p.score += 150; p.pluckT = 0.3; evt(p, 'harvest'); G.log.push(['harvest', s, pl.i]);
   }
   G.log.push(['bonk', s, hits]);
 }
@@ -268,7 +269,8 @@ function kill(G, e, s, how) {
   G.log.push(['kill', s, e.kind, e.x, e.y, pts, how]);
   if (k.stink) stink(G, e.x, e.y, s);
   // knocked to death, it keeps skidding for a moment and can still bowl into others
-  else if (e.flingT > 0 && (how === 'bonk' || how === 'spin' || how === 'bowl') && e.kind !== 'queen') e.ghost = 0.32;
+  else e.ghost = e.kind === 'queen' ? 0.7 : 0.32;
+  if (!(e.flingT > 0 && (how === 'bonk' || how === 'spin' || how === 'bowl'))) e.flingT = 0;
   if (e.kind === 'queen') {
     for (const q of Object.values(G.players)) q.score += 300;
     for (const pl of G.plots) pl.hp = Math.min(3, pl.hp + 1);
@@ -293,7 +295,7 @@ function stink(G, x, y, s) {
 
 function dizzy(G, s, p, nx, ny, secs) {
   if (p.inv > 0 || p.spinT > 0) return false;
-  p.stun = secs; p.inv = secs + INVULN; p.vx += nx * 6; p.vy += ny * 6;
+  p.stun = secs; p.hurtT = 0.2; p.inv = secs + INVULN; p.vx += nx * 6; p.vy += ny * 6;
   p.combo = 0; p.ouches++; p.holding = false; p.charge = 0; p.mode = '';
   evt(p, 'ouch'); G.log.push(['ouch', s, p.x, p.y]);
   return true;
@@ -350,7 +352,7 @@ export function step(G, dt, live = () => true) {
 }
 
 function stepPlayer(G, s, p, dt) {
-  p.cd = Math.max(0, p.cd - dt); p.bonkT = Math.max(0, p.bonkT - dt); p.inv = Math.max(0, p.inv - dt);
+  p.cd = Math.max(0, p.cd - dt); p.bonkT = Math.max(0, p.bonkT - dt); p.hurtT = Math.max(0, p.hurtT - dt); p.pluckT = Math.max(0, p.pluckT - dt); p.inv = Math.max(0, p.inv - dt);
   p.giantT = Math.max(0, p.giantT - dt); p.multiT = Math.max(0, p.multiT - dt);
   if (p.combo && (p.comboT -= dt) <= 0) p.combo = 0;
   const ix = p.on ? p.ix : 0, iy = p.on ? p.iy : 0;
@@ -525,19 +527,20 @@ function lobbyWeeds(G, dt) {
 // ---------- the end ----------
 export const ranking = G => Object.entries(G.players).sort((a, b) => b[1].score - a[1].score);
 
+// [art (a ui_icons set or sprite id), title, measure, line]
 const AWARDS = [
-  ['💥', 'Pest Smasher', p => p.kills, p => `${p.kills} pests bonked`],
-  ['🥕', 'Harvest Hero', p => p.harvests, p => `${p.harvests} crops picked`],
-  ['💧', 'Water Wizard', p => p.waters, p => `${p.waters} beds watered`],
-  ['🔥', 'Combo Champ', p => p.best, p => `best combo ${p.best}`],
-  ['🌀', 'Spin Doctor', p => p.spinKills, p => `${p.spinKills} pests swept away`],
-  ['🎳', 'Bug Bowler', p => p.bowled, p => `${p.bowled} pests bowled over`],
-  ['⚡', 'Multi Masher', p => p.bestMulti >= 3 ? p.bestMulti : 0, p => `a ${p.bestMulti}-pest multi-kill`],
-  ['💨', 'Stink Bomber', p => p.boomKills, p => `${p.boomKills} pests gassed`],
-  ['🤝', 'Good Friend', p => p.wakes, p => `bonked ${p.wakes} friend${p.wakes === 1 ? '' : 's'} awake`],
-  ['🐞', 'Ladybug Lover', p => p.gifts, p => `${p.gifts} ladybug${p.gifts === 1 ? '' : 's'} caught`],
-  ['💫', 'Dizzy Dancer', p => p.ouches, p => `dizzy ${p.ouches} times`],
-  ['👟', 'Wanderer', p => p.dist / 40, p => `walked ${Math.round(p.dist)} m`],
+  ['rake', 'Pest Smasher', p => p.kills, p => `${p.kills} pests bonked`],
+  ['carrot', 'Harvest Hero', p => p.harvests, p => `${p.harvests} crops picked`],
+  ['watering_can', 'Water Wizard', p => p.waters, p => `${p.waters} beds watered`],
+  ['flame', 'Combo Champ', p => p.best, p => `best combo ${p.best}`],
+  ['bowling_pin', 'Bug Bowler', p => p.bowled, p => `${p.bowled} pests bowled over`],
+  ['bolt', 'Multi Masher', p => p.bestMulti >= 3 ? p.bestMulti : 0, p => `${p.bestMulti} pests in one go`],
+  ['spin', 'Spin Doctor', p => p.spinKills, p => `${p.spinKills} pests swept away`],
+  ['stink', 'Stink Bomber', p => p.boomKills, p => `${p.boomKills} pests gassed`],
+  ['friends', 'Good Friend', p => p.wakes, p => `woke ${p.wakes} friend${p.wakes === 1 ? '' : 's'} up`],
+  ['ladybug', 'Ladybug Lover', p => p.gifts, p => `${p.gifts} ladybug${p.gifts === 1 ? '' : 's'} caught`],
+  ['swirl', 'Dizzy Dancer', p => p.ouches, p => `dizzy ${p.ouches} time${p.ouches === 1 ? '' : 's'}`],
+  ['boot', 'Wanderer', p => p.dist / 40, p => `walked ${Math.round(p.dist)} m`],
 ];
 // One award each, no two the same: each player gets the one they are most outstanding at, relative to the table.
 export function awards(G) {
@@ -553,6 +556,6 @@ export function awards(G) {
     const [icon, title, , why] = AWARDS[c.ai];
     out[c.s] = { icon, title, why: why(G.players[c.s]) }; used.add(c.ai);
   }
-  for (const [s] of ps) out[s] ??= { icon: '🌼', title: 'Little Sprout', why: 'just happy to be in the garden' };
+  for (const [s] of ps) out[s] ??= { icon: 'seedling', title: 'Little Sprout', why: 'just happy to be in the garden' };
   return out;
 }

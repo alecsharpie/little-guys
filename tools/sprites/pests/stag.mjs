@@ -2,6 +2,7 @@
 // light (it reads as lacquered armour: normal bonks bounce off), a broad pronotum, a big head and chestnut antler
 // mandibles. walk 4, munch 2. Anchor = ground point under the body.
 import { grid, volumes, outline, line, put, get, over, emit, stamp } from './kit.mjs';
+import { squash, shock, deadBug } from './react.mjs';
 
 const PAL = {
   w: '#ffffff', // specular
@@ -19,6 +20,7 @@ const PAL = {
   K: '#1e1828', // far leg
   e: '#ffe6a8', // eye
   g: '#a6e05a', G: '#5fb83f', // leaf crumbs
+  p: '#9a6a56', P: '#6a4038', q: '#40242a', // belly (chestnut)
 };
 const MATS = {
   shell: { t: ['w', 'l', 'm', 's', 'd'], thr: [0.95, 0.72, 0.3, -0.25] },
@@ -26,7 +28,7 @@ const MATS = {
   head: { t: ['l', 'm', 's', 'd'], thr: [0.8, 0.4, -0.1] },
 };
 
-function stag({ legs = [0, 0, 0, 0, 0, 0], lift = [], open = 0, dip = 0, crumb = 0, by = 0 }) {
+function stag({ legs = [0, 0, 0, 0, 0, 0], lift = [], open = 0, dip = 0, crumb = 0, by = 0, shut = 0 }) {
   const Wd = 18, Ht = 14;
   const forms = [
     { cx: 5.0, cy: 6.6 + by, rx: 4.5, ry: 3.9, mat: 'shell', z: 0 },
@@ -78,16 +80,42 @@ oCCCCo.
   line(L, 11, 4 + by + dip, 11, 2 + by + dip, 'K'); put(L, 12, 1 + by + dip, 'K');
   const out = over(over(L, M), g);
   // eye
-  put(out, 12, 5 + by + dip, 'e');
+  if (!shut) put(out, 12, 5 + by + dip, 'e');
   if (crumb) { put(out, 17, 9, 'g'); put(out, 16, 10, 'G'); }
   return out;
 }
 
 const A = [0, 2, 4], B = [1, 3, 5];
 const pose = (fa, fb, la, lb) => { const legs = []; for (const i of A) legs[i] = fa; for (const i of B) legs[i] = fb; return { legs, lift: [...(la ? A : []), ...(lb ? B : [])] }; };
+// hurt: shell squashed flat a pixel, legs splayed wide, jaws sprung open, eye shut, OOF ticks over the head
+function hurt(k) {
+  const g = squash(stag({ legs: k ? [-1, 0, 1, -1, 0, 1] : [-2, 0, 2, -2, 0, 2], open: 1, shut: 1 }), k ? [] : [7], 0);
+  shock(g, 11, k ? 2 : 3, 'w');
+  return g;
+}
+// dead: on its back, chestnut belly up, legs kicking, mandibles gaping
+const deadMats = { shell: { t: ['w', 'l', 'm', 's', 'd'], thr: [0.95, 0.7, 0.3, -0.2] }, belly: { t: ['p', 'P', 'q'], thr: [0.45, -0.05] }, head: { t: ['l', 'm', 's', 'd'], thr: [0.8, 0.4, -0.1] } };
+function dead(k) {
+  const { g } = deadBug({ w: 18, h: 14, cx: 7.2, cy: 10.0, rx: 6.4, ry: 3.6, mats: deadMats, head: [12.8, 10.6, 1.7, 1.8], hips: [[4, -1], [7, 0], [10, 1], [5, -1], [9, 1]], len: 5, leg: 'k', leg2: 'K', ink: 'o', rim: 's', segs: [5, 7, 9], k });
+  // glossy glint on the shell rim, mandibles sprung open (they wave with the legs)
+  put(g, 3, 12, 'c'); put(g, 4, 12, 'w');
+  const t = k ? 0 : 1;
+  stamp(g, 13, 6 + t, `
+..oAo
+.oABo
+oBBo.`);
+  stamp(g, 13, 12 - t, `
+oBCo.
+.oCCo
+..oo.`);
+  put(g, 14, 10, 'o');
+  return g;
+}
+
 export default function run() {
   return emit('stag', 'armoured stag beetle, lacquered shell and antler mandibles', {
     anchor: [9, 14],
+    fps: { hurt: 14, dead: 14 },
     palette: PAL,
     frames: {
       walk: [
@@ -100,6 +128,8 @@ export default function run() {
         stag({ ...pose(0, 0), open: 1 }),
         stag({ ...pose(0, 0), dip: 1, crumb: 1 }),
       ],
+      hurt: [hurt(0), hurt(1)],
+      dead: [dead(0), dead(1)],
     },
   });
 }

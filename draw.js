@@ -3,7 +3,9 @@
 // header) goes on the full-res canvas over it, so it stays sharp.
 import { S } from './sprites/index.js';
 import { draw as spr, frame as sprFrame, frameAt, count, TEAMS } from './sprites/pix.js';
-import { W, H, TOP, PLOT_W, PLOT_H, HOLD_DELAY, KINDS, SEATS, standingIn } from './game.js';
+import { lookup } from './ui.js';
+const FONT = '"Pixelify Sans", ui-rounded, system-ui, sans-serif';
+import { W, H, TOP, PLOT_W, PLOT_H, HOLD_DELAY, KINDS, SEATS, BONK_ANIM, standingIn } from './game.js';
 
 export const U = 30, LW = W * U, LH = H * U;
 export const team = seat => TEAMS[(SEATS.indexOf(seat) + 8) % 8];
@@ -82,7 +84,8 @@ export function burst(wx, wy, colors, n = 14, speed = 70, up = 40) {
   }
 }
 // key: a popup with the same key replaces the last one (a DOUBLE! becomes a TRIPLE! instead of stacking)
-export function popup(wx, wy, text, color = '#fff', size = 1, key = null) { if (key) fx.pops = fx.pops.filter(p => p.key !== key); fx.pops.push({ x: L(wx), y: L(wy), text, color, size, t: 0, life: 1.1, key }); }
+// icon: a ui_icons set or sprite id, drawn as pixel art in front of the text
+export function popup(wx, wy, text, color = '#fff', size = 1, key = null, icon = null) { if (key) fx.pops = fx.pops.filter(p => p.key !== key); fx.pops.push({ x: L(wx), y: L(wy), text, color, size, t: 0, life: 1.1, key, icon }); }
 export function ring(wx, wy, r, color, life = 0.3) { fx.rings.push({ x: L(wx), y: L(wy), r: L(r), color, t: 0, life }); }
 export function anim(id, set, wx, wy, { life, flip = false, dy = 0 } = {}) {
   const spec = S[id]; if (!spec) return;
@@ -156,23 +159,35 @@ function drawPlot(x, pl, t, items) {
   if (pl.hp < 3 || pl.munchers) for (let k = 0; k < 3; k++) heartPx(x, hx + k * 6, hy, k < pl.hp && !(blink && k === pl.hp - 1));
 }
 
-function gardenerSet(G, p) {
+// Which set, and which frame of it (null = by the clock). One-shot sets (bonk, hurt, pluck, the charge wind-up) are
+// played by their own timers, so the strike is always frame 0 at the moment of the press.
+const has = (spec, set) => !!spec.frames[set];
+const once = (spec, set, k) => Math.min(count(spec, set) - 1, Math.floor(Math.max(0, k) * count(spec, set)));
+function gardenerSet(G, p, t) {
+  const spec = S.gardener;
   if (!p.on) return ['sleep', null];
+  if (p.hurtT > 0 && has(spec, 'hurt')) return ['hurt', once(spec, 'hurt', 1 - p.hurtT / 0.2)];
   if (p.stun > 0) return ['dizzy', null];
   if (p.spinT > 0) return ['spin', null];
   if (p.holding && p.holdT > HOLD_DELAY && p.mode === 'water') return ['water', null];
-  if (p.holding && p.holdT > HOLD_DELAY && p.mode === 'charge') return ['charge', null];
-  if (p.bonkT > 0) return ['bonk', Math.min(3, Math.floor((0.22 - p.bonkT) / 0.22 * 4))];
+  if (p.holding && p.holdT > HOLD_DELAY && p.mode === 'charge') {
+    // a 4-frame charge: frames 0-1 wind up once, then 2-3 tremble on a loop
+    const n = count(spec, 'charge'), e = p.holdT - HOLD_DELAY;
+    if (n >= 4) return ['charge', e < 0.12 ? Math.floor(e / 0.06) : 2 + Math.floor(t * 12) % 2];
+    return ['charge', null];
+  }
+  if (p.bonkT > 0) return ['bonk', once(spec, 'bonk', 1 - p.bonkT / BONK_ANIM)];
+  if (p.pluckT > 0 && has(spec, 'pluck')) return ['pluck', once(spec, 'pluck', 1 - p.pluckT / 0.3)];
   if (p.moving > 0.4) return ['walk', null];
   if (G.phase === 'break' || p.cheer) return ['cheer', null];
   return ['idle', null];
 }
 
 function drawGardener(x, G, seat, p, t) {
-  const tm = team(seat), [set, idx] = gardenerSet(G, p), spec = S.gardener;
+  const tm = team(seat), [set, idx] = gardenerSet(G, p, t), spec = S.gardener;
   const i = idx ?? frameAt(spec, set, t + SEATS.indexOf(seat) * 0.37);
   let px = L(p.x), py = L(p.y);
-  if (set === 'charge' && p.charge >= 1) px += Math.floor(t * 30) % 2 ? 1 : -1;
+  if (set === 'charge' && p.charge >= 1 && count(spec, 'charge') < 4) px += Math.floor(t * 30) % 2 ? 1 : -1;
   const flip = p.fx < 0, big = p.giantT > 0 && (p.giantT > 1.5 || Math.floor(t * 8) % 2);
   const alpha = p.on ? (p.inv > 0 && p.stun <= 0 && p.spinT <= 0 && Math.floor(t * 12) % 2 ? 0.55 : 1) : 0.6;
   if (big) {
@@ -198,7 +213,9 @@ function drawGardener(x, G, seat, p, t) {
 }
 
 function enemySet(e) {
-  const k = e.kind;
+  const k = e.kind, spec = S[k];
+  if (e.dead && spec.frames.dead) return 'dead';
+  if (e.hurt > 0 && spec.frames.hurt && !(k === 'stinkbug' && e.fly > 0)) return 'hurt';
   if (k === 'weed') return 'idle';
   if (k === 'ladybug') return 'fly';
   if (k === 'stinkbug' && e.fly > 0) return 'fly';
@@ -211,13 +228,14 @@ function enemySet(e) {
 function drawEnemy(x, e, t) {
   const spec = S[e.kind]; if (!spec) return;
   const set = enemySet(e);
-  const i = e.kind === 'hopper' && set === 'hop' ? Math.floor(e.hopT * 4) : frameAt(spec, set, e.t);
+  const i = set === 'hurt' ? (e.hurt > 0.075 ? 0 : 1) : e.kind === 'hopper' && set === 'hop' ? Math.floor(e.hopT * 4) : frameAt(spec, set, e.t);
   let px = L(e.x), py = L(e.y);
   if (e.kind === 'hopper' && set === 'hop' && e.hopT < 0.35) py -= Math.round(Math.sin(e.hopT / 0.35 * Math.PI) * 6);
   if (e.kind === 'ladybug') py -= 6 + Math.round(Math.sin(e.t * 6) * 2);
   if (e.fly > 0) py -= Math.round(Math.sin(e.fly / 0.75 * Math.PI) * 12);
-  if (e.dead) { spr(x, spec, set, i, px, py, { flip: e.face < 0, mode: 'flash', alpha: Math.min(1, e.ghost * 4) }); return; }
-  spr(x, spec, set, i, px, py, { flip: e.face < 0, mode: e.hurt > 0.06 ? 'flash' : '' });
+  // a dead pest: flipped on its back and skidding (or a white flash, until it has a dead set), fading at the end
+  if (e.dead) { spr(x, spec, set, i, px, py, { flip: e.face < 0, mode: set === 'dead' ? '' : 'flash', alpha: Math.min(1, e.ghost * 4) }); return; }
+  spr(x, spec, set, i, px, py, { flip: e.face < 0, mode: e.hurt > 0.11 && !spec.frames.hurt ? 'flash' : e.hurt > 0.12 ? 'flash' : '' });
   if (e.max > 1 && e.hp < e.max) {
     const w = e.kind === 'queen' ? 30 : 12, bx = Math.round(px - w / 2), by = Math.round(py - (e.kind === 'queen' ? 32 : 16));
     x.fillStyle = '#2a1a12'; x.fillRect(bx - 1, by - 1, w + 2, 4);
@@ -237,6 +255,13 @@ function warnings(x, G, t) {
     x.fillStyle = q.kind === 'ladybug' ? '#ffe14d' : q.kind === 'queen' ? '#c77dff' : '#ff4d4d';
     x.fillRect(px - 1, py - 5, 2, 5); x.fillRect(px - 1, py + 1, 2, 2);
   }
+}
+
+// a pixel icon (ui_icons set or sprite id) on the full-res canvas, bottom-centre at (x, y), at a whole-number scale
+function iconAt(ctx, name, x, y, z, i = null) {
+  const [spec, set, fi] = lookup(name), f = sprFrame(spec, set, i ?? fi);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(f, Math.round(x - f.width * z / 2), Math.round(y - f.height * z), f.width * z, f.height * z);
 }
 
 // ---------- the frame ----------
@@ -297,30 +322,38 @@ export function drawField(ctx, G, { W: SW, H: SH, live, name, t }) {
   const X = lx => ox + lx * Z, Y = ly => oy + ly * Z;
   // names under the gardeners
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.font = `800 ${Math.round(6 * Z)}px ui-rounded, system-ui, sans-serif`;
+  if ('wordSpacing' in ctx) ctx.wordSpacing = Math.round(2 * Z) + 'px';   // the pixel font's spaces are thin
+  ctx.font = `600 ${Math.round(6 * Z)}px ${FONT}`;
   for (const [s, p] of Object.entries(G.players)) {
     const nx = X(L(p.x)), ny = Y(L(p.y) + 3);
-    const label = name(s) + (p.on ? '' : ' 💤');
-    ctx.lineWidth = Math.max(2, Z * 1.2); ctx.strokeStyle = 'rgba(20,30,10,.85)'; ctx.strokeText(label, nx, ny);
+    const label = name(s);
+    ctx.lineWidth = Math.max(2, Z * 1.2); ctx.strokeStyle = 'rgba(20,30,10,.85)'; ctx.lineJoin = 'round'; ctx.strokeText(label, nx, ny);
     ctx.fillStyle = team(s).l; ctx.fillText(label, nx, ny);
+    if (!p.on) iconAt(ctx, 'zzz', X(L(p.x) + 6), Y(L(p.y) - 30 - (Math.floor(t * 2) % 2)), Z);
   }
   // combo over the head: bigger and hotter as it climbs, with a pop each time it goes up
   for (const [s, p] of Object.entries(G.players)) {
     if (p.combo < 3) continue;
     const heat = Math.min(1, p.combo / 30), bump = (fx.combo[s] || 0) / 0.18;
     const size = Math.round((6 + heat * 4) * Z * (1 + bump * 0.45));
-    ctx.font = `900 ${size}px ui-rounded, system-ui, sans-serif`;
+    ctx.font = `700 ${size}px ${FONT}`;
     const cx = X(L(p.x)), cy = Y(L(p.y) - (p.giantT > 0 ? 56 : 32)) - size;
-    const label = `×${p.combo}${p.combo >= 10 ? ' 🔥' : ''}`;
+    const label = `×${p.combo}`;
     ctx.lineWidth = Math.max(3, Z * 1.5); ctx.strokeStyle = 'rgba(40,20,10,.9)'; ctx.strokeText(label, cx, cy);
     ctx.fillStyle = `hsl(${50 - heat * 45}, 100%, ${70 - heat * 12}%)`; ctx.fillText(label, cx, cy);
+    if (p.combo >= 10) iconAt(ctx, 'flame', cx + ctx.measureText(label).width / 2 + 6 * Z, cy + size * 0.95, Z, Math.floor(t * 10));
   }
   for (const p of fx.pops) {
     const k = p.t / p.life, a = k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25;
-    ctx.globalAlpha = a; ctx.font = `900 ${Math.round(8 * Z * p.size * (k < 0.1 ? 0.6 + k * 4 : 1))}px ui-rounded, system-ui, sans-serif`;
+    const fs = Math.round(8 * Z * p.size * (k < 0.1 ? 0.6 + k * 4 : 1));
+    ctx.globalAlpha = a; ctx.font = `700 ${fs}px ${FONT}`;
     ctx.lineWidth = Math.max(3, Z * 1.6); ctx.strokeStyle = 'rgba(30,20,10,.85)';
-    const py = Y(p.y - 18 - k * 14);
-    ctx.strokeText(p.text, X(p.x), py); ctx.fillStyle = p.color; ctx.fillText(p.text, X(p.x), py);
+    const py = Y(p.y - 18 - k * 14), tw = p.text ? ctx.measureText(p.text).width : 0;
+    // with an icon, the icon and the text sit side by side, centred together
+    const iz = Math.max(1, Math.round(Z * Math.min(1.5, p.size))), iw = p.icon ? 13 * iz : 0;
+    const tx = X(p.x) + iw / 2;
+    if (p.text) { ctx.strokeText(p.text, tx, py); ctx.fillStyle = p.color; ctx.fillText(p.text, tx, py); }
+    if (p.icon) iconAt(ctx, p.icon, tx - tw / 2 - iw / 2 - (p.text ? 2 * iz : 0), py + fs * 0.95, iz);
     ctx.globalAlpha = 1;
   }
   return { Z, ox, oy, X, Y };

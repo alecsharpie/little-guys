@@ -47,3 +47,12 @@ Pests and effects (painter B):
 - `ladybug` (friendly, carries a power-up) 11×9: fly 2, walk 2. `weed` (practice target) 10×12: idle 2.
 - `fx_poof` 16×16 idle 5 (squash puff, plays once) · `fx_stink` 32×22 idle 4 (green cloud) · `fx_sparkle` 7×7 idle 4 ·
   `fx_star` 5×5 idle 4 (dizzy stars) · `fx_bee` 7×6 fly 2 · `fx_drop` drop 1 (3×5), splash 3 (7×4).
+
+Round 2 (animation): `gardener` is now 30×30, anchor [15,30], with bonk 6 (frame 0 = the strike), charge 4 (0–1 wind
+up once, 2–3 loop), spin 6, plus hurt 2 and pluck 3. Every pest has hurt 2 (squash, rebound) and dead 2 (on its back,
+legs kicking: shown while the body skids away).
+
+UI kit (painter C, `node tools/sprites/ui.mjs`): `ui_icons` (37 icons, 12×12, one set each, used instead of emoji
+everywhere), 9-slices `ui_panel` (wood, slice 8), `ui_paper` (slice 8), `ui_button` / `ui_button_gold` (up/down,
+slice 6), `ui_chip` (slice 4), the phone's `pad_button` (up/down), `pad_ring` (16 fill steps), `pad_base`, `pad_knob`
+(all team-coloured), and `logo` 112×48. `ui.js` turns any of them into crisp HTML images and CSS skins.

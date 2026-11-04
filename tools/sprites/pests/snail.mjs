@@ -1,7 +1,8 @@
 // snail 16×12: a garden snail with a glossy caramel spiral shell and a soft lilac-grey foot. walk 4 (the head stretches
 // forward, then the tail catches up, eye stalks bob), munch 2 (head dips, nibbling), hide 1 (pulled into the shell).
 // Anchor = ground point under the body.
-import { grid, volumes, outline, line, put, get, over, emit, stamp, clone } from './kit.mjs';
+import { grid, volumes, outline, line, put, get, over, emit, stamp, clone, flipX, flipY } from './kit.mjs';
+import { squash, shock } from './react.mjs';
 
 const PAL = {
   w: '#fff6dc', // shell glint
@@ -37,7 +38,7 @@ function shellLayer(Wd, Ht, cx, cy, R) {
   return { g, info };
 }
 
-function snail({ head = 0, tail = 0, shellX = 0, stalk = 0, dip = 0, mouth = 0, crumb = 0, hide = 0 }) {
+function snail({ head = 0, tail = 0, shellX = 0, stalk = 0, dip = 0, mouth = 0, crumb = 0, hide = 0, oof = 0 }) {
   const Wd = 16, Ht = 12;
   const out = grid(Wd, Ht);
   if (!hide) {
@@ -52,8 +53,13 @@ function snail({ head = 0, tail = 0, shellX = 0, stalk = 0, dip = 0, mouth = 0, 
     outline(g, 'o', 'n');
     // eye stalks: two, the far one shorter and darker; tips are eyes with a glint
     const hx = Math.round(13 + head), hy = Math.round(6 + dip);
-    line(g, hx - 1, hy, hx - 1, hy - 2 - stalk, 'n'); put(g, hx - 1, hy - 3 - stalk, 'e');
-    line(g, hx, hy, hx + 1, hy - 2 + stalk, 'm'); put(g, hx + 1, hy - 3 + stalk, 'e'); put(g, hx + 2, hy - 3 + stalk, '.');
+    if (oof) { // stalks whipped back and squeezed shut
+      line(g, hx - 1, hy, hx - 3, hy - 1, 'n'); put(g, hx - 4, hy - 1, 'p');
+      line(g, hx, hy, hx - 2, hy - 2, 'm'); put(g, hx - 3, hy - 2, 'p');
+    } else {
+      line(g, hx - 1, hy, hx - 1, hy - 2 - stalk, 'n'); put(g, hx - 1, hy - 3 - stalk, 'e');
+      line(g, hx, hy, hx + 1, hy - 2 + stalk, 'm'); put(g, hx + 1, hy - 3 + stalk, 'e'); put(g, hx + 2, hy - 3 + stalk, '.');
+    }
     // little lower tentacles + mouth
     put(g, hx + 2, hy + 2 + dip, mouth ? 'o' : 'n');
     over(out, g);
@@ -74,11 +80,40 @@ function snail({ head = 0, tail = 0, shellX = 0, stalk = 0, dip = 0, mouth = 0, 
   return out;
 }
 
+// hurt: shell knocked down onto the foot (squashed), head recoiled, stalks whipped back, OOF ticks
+function hurt(k) {
+  const g = squash(snail({ head: -1, tail: 0, shellX: 0, oof: 1 }), k ? [] : [3], 0);
+  shock(g, 12, k ? 3 : 4, 'E');
+  return g;
+}
+// dead: popped clean out of its shell; the empty shell and the floppy snail tumble side by side
+function dead(k) {
+  const Wd = 16, Ht = 12, out = grid(Wd, Ht);
+  // the snail: a curled, belly-up slug with the pale sole showing on top
+  const a = k ? -0.35 : 0.3;
+  const { g: B, info } = volumes(Wd, Ht, [{ cx: 11.4, cy: 8.2, rx: 4.0, ry: 1.9, ang: a, mat: 'foot' }], MATS);
+  for (let y = 0; y < Ht; y++) for (let x = 0; x < Wd; x++) if (info[y][x] && info[y][x].v < -0.45) B[y][x] = 'l';
+  outline(B, 'o', 'n');
+  const tip = k ? [15, 9] : [15, 6], dir = k ? 1 : -1;
+  line(B, tip[0] - 1, tip[1], tip[0], tip[1] + dir * 2, 'm'); line(B, tip[0] - 2, tip[1], tip[0] - 2, tip[1] + dir * 3, 'n');
+  put(B, tip[0], tip[1] + dir * 3, 'o'); put(B, tip[0] - 2, tip[1] + dir * 4, 'o');
+  // the empty shell, rolled over (spiral mirrored each frame), its dark mouth open
+  const { g: S } = shellLayer(Wd, Ht, 5.0, 6.4, 3.9);
+  outline(S, 'o', 'c');
+  let SS = k ? flipX(S) : flipY(S);
+  { const T = grid(Wd, Ht); over(T, SS, k ? -6 : 0, k ? 0 : -1); SS = T; }
+  const mx = k ? 2 : 7, my = k ? 8 : 4;
+  put(SS, mx, my, 'd'); put(SS, mx, my + 1, 'd'); put(SS, mx + (k ? 1 : -1), my + 1, 'o');
+  over(out, B); over(out, SS);
+  put(out, 2 + k * 2, 1, 'E'); // a spinning glint
+  return out;
+}
+
 export default function run() {
   return emit('snail', 'garden snail, caramel spiral shell', {
     anchor: [8, 12],
     palette: PAL,
-    fps: { walk: 6 },
+    fps: { walk: 6, hurt: 14, dead: 14 },
     frames: {
       walk: [
         snail({ head: 0, tail: 0, stalk: 0 }),
@@ -91,6 +126,8 @@ export default function run() {
         snail({ dip: 0, crumb: 1 }),
       ],
       hide: [snail({ hide: 1 })],
+      hurt: [hurt(0), hurt(1)],
+      dead: [dead(0), dead(1)],
     },
   });
 }

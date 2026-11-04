@@ -16,108 +16,103 @@
 <style>
   html, body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   body { --c: #8a9a6a; --cl: #c8d8a8; --cd: #4a5a3a; display: flex; flex-direction: column;
-    padding: calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
-    background: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--c) 22%, var(--bg)) 0%, var(--bg) 75%); }
+    padding: calc(4px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+    background: radial-gradient(120% 90% at 50% 100%, color-mix(in srgb, var(--c) 20%, var(--bg)) 0%, var(--bg) 75%); }
   body.stun { --c: #8a8a8a; --cl: #c8c8c8; --cd: #555; }
-  .top { display: flex; align-items: center; gap: 10px; min-height: 44px; white-space: nowrap; }
-  .top .me { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 18px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  #guy { width: 32px; height: 48px; image-rendering: pixelated; flex: none; margin-top: -6px; }
-  .top .score { font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
-  .top .combo { font-size: 16px; font-weight: 900; color: var(--cl); }
-  .top .sp { flex: 1; }
-  .top .beds { font-size: 13px; letter-spacing: -1px; }
-  .top .wave { font-weight: 800; color: var(--ink-2); font-size: 15px; }
-  #ready { min-height: 40px; font-size: 16px; padding: 0 16px; }
-  #ready.on { background: var(--good); border-color: var(--good); color: #10240c; }
-  .ctl { flex: 1; position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; min-height: 0; }
-  .zone { position: relative; border-radius: 26px; border: 2px dashed color-mix(in srgb, var(--c) 45%, transparent); overflow: hidden; }
-  .zone .hint { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: var(--ink-2); font-size: 13px; font-weight: 700; pointer-events: none; }
-  #base, #knob { position: absolute; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); }
-  #base { width: 130px; height: 130px; border: 4px solid color-mix(in srgb, var(--c) 70%, transparent); background: color-mix(in srgb, var(--c) 14%, transparent); transition: opacity .2s; }
-  #knob { width: 64px; height: 64px; background: radial-gradient(circle at 35% 30%, var(--cl), var(--c) 55%, var(--cd)); box-shadow: 0 4px 0 rgba(0,0,0,.35); }
-  .rest #base { opacity: .45; } .rest #knob { opacity: .55; }
-  #btn { position: absolute; left: 50%; top: 50%; width: min(78%, 64vh, 230px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; }
-  #btn svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-  #btn .face { position: absolute; inset: 11%; border-radius: 50%; display: grid; place-items: center; text-align: center;
-    background: radial-gradient(circle at 35% 30%, var(--cl), var(--c) 55%, var(--cd)); box-shadow: 0 8px 0 var(--cd), 0 10px 20px rgba(0,0,0,.35); transition: transform .06s, box-shadow .06s; }
-  #btn.down .face { transform: translateY(6px) scale(.97); box-shadow: 0 2px 0 var(--cd), 0 4px 10px rgba(0,0,0,.35); }
-  #btn .lbl { font-weight: 900; font-size: clamp(20px, 6vh, 34px); line-height: 1; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
-  #btn .lbl small { display: block; font-size: .45em; font-weight: 800; margin-top: 4px; opacity: .9; }
-  #btn.full .face { animation: glow .25s infinite alternate; }
-  #btn.hit .face { animation: hit .16s ease-out; }
-  @keyframes hit { from { filter: brightness(1.8); transform: scale(1.06); } to { filter: none; transform: none; } }
-  @keyframes glow { from { filter: brightness(1); } to { filter: brightness(1.35); } }
-  #msg { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); pointer-events: none; text-align: center; font-weight: 900; font-size: 20px; padding: 6px 14px; border-radius: 14px; background: rgba(20,30,10,.75); white-space: nowrap; max-width: 96%; overflow: hidden; text-overflow: ellipsis; }
-  #msg:empty { display: none; }
-  #msg small { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); }
-  .shout { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-size: 40px; font-weight: 900; pointer-events: none; opacity: 0; text-shadow: 0 4px 0 rgba(0,0,0,.45); }
-  .shout.go { animation: shout 1.3s ease-out; }
-  @keyframes shout { 0% { opacity: 0; transform: scale(.5); } 12% { opacity: 1; transform: scale(1.2); } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px); } }
-  .ctl.ouch { animation: ouch .4s; }
-  @keyframes ouch { 0% { background: rgba(255, 60, 80, .35); transform: translateX(-10px); } 30% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 100% { background: transparent; transform: none; } }
-  #card { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(20, 30, 10, .82); text-align: center; padding: 20px; }
-  #card .big { font-size: 30px; font-weight: 900; line-height: 1.15; }
-  #card .big small { display: block; font-size: 16px; font-weight: 700; color: var(--ink-2); margin-top: 8px; }
-  #card .num { font-size: 120px; font-weight: 900; color: var(--cl); }
-  #card .btn { margin-top: 16px; }
-  .form { margin: auto; width: min(420px, 100%); display: flex; flex-direction: column; gap: 12px; text-align: center; }
-  .form h1 { margin: 0 0 4px; font-size: 40px; } .form h1 span { color: var(--accent); }
-  .form input { font-size: 24px; padding: 12px; border-radius: var(--radius); border: 2px solid var(--line); background: var(--bg-2); text-align: center; width: 100%; touch-action: manipulation; user-select: text; -webkit-user-select: text; }
-  .form input.code { letter-spacing: .25em; text-transform: uppercase; font-weight: 900; }
-  .form .btn { min-height: 64px; font-size: 22px; }
-  .note { color: var(--ink-2); font-size: 15px; }
   #pad, #pad * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
-  .tip { position: fixed; left: 50%; bottom: calc(6px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 5; display: flex; gap: 8px; align-items: center;
-    padding: 6px 8px 6px 12px; border-radius: 12px; background: rgba(20,30,10,.92); border: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
-  .tip b { color: var(--ink); } .tip button { border: 0; background: var(--panel); border-radius: 8px; padding: 4px 9px; font-weight: 900; }
-  .turn { display: none; position: absolute; left: 0; right: 0; top: 44%; text-align: center; color: var(--ink-2); font-size: 14px; font-weight: 700; pointer-events: none; }
-  @media (orientation: portrait) {
-    .ctl { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
-    #stick { order: 2; } #press { order: 1; }
-  }
-  .shake { animation: shake .3s; }
+  .top { display: flex; align-items: center; gap: 10px; min-height: 44px; white-space: nowrap; }
+  .top .me { display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 19px; min-width: 0; overflow: hidden; }
+  #guy { flex: none; margin: -8px -4px -4px -6px; }
+  .top .score { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .top .combo { display: flex; align-items: center; gap: 2px; font-size: 17px; font-weight: 700; color: var(--cl); }
+  .top .sp { flex: 1; }
+  .top .wave { font-weight: 600; color: var(--ink-2); font-size: 16px; }
+  .top .beds { display: flex; gap: 1px; }
+  #ready { min-height: 44px; font-size: 18px; }
+  .ctl { flex: 1; position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; min-height: 0; }
+  .zone { position: relative; overflow: hidden; }
+  .zone .hint { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; color: var(--ink-2); font-size: 14px; pointer-events: none; opacity: .8; }
+  #base, #knob { position: absolute; pointer-events: none; transform: translate(-50%, -50%); }
+  .rest #base { opacity: .55; } .rest #knob { opacity: .7; }
+  #btn { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+  #btn img { position: absolute; }
+  #lbl { position: absolute; left: 50%; top: var(--ly, 40%); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; white-space: nowrap;
+    font-weight: 700; font-size: clamp(22px, 7vh, 34px); line-height: 1; color: #fff; text-shadow: 0 3px 0 var(--cd), 2px 0 0 var(--cd), -2px 0 0 var(--cd), 0 -2px 0 var(--cd); }
+  #lbl small { font-size: .48em; font-weight: 600; }
+  #btn.down #lbl { top: var(--lyd, 45%); }
+  #btn.hit #face { animation: hit .16s steps(2); }
+  @keyframes hit { from { filter: brightness(1.7); } to { filter: none; } }
+  #btn.full #face { animation: glow .3s steps(2) infinite; }
+  @keyframes glow { 50% { filter: brightness(1.35); } }
+  #msg { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); pointer-events: none; text-align: center; font-weight: 700; font-size: 20px; white-space: nowrap; max-width: 96%; z-index: 2; }
+  #msg:empty { display: none; }
+  #msg small { display: block; font-size: 14px; font-weight: 500; color: var(--ink-2); }
+  #msg img { vertical-align: middle; }
+  .shout { position: absolute; left: 0; right: 0; top: 28%; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 40px; font-weight: 700; pointer-events: none; opacity: 0; z-index: 3;
+    text-shadow: 0 4px 0 #24180f, 3px 0 0 #24180f, -3px 0 0 #24180f, 0 -3px 0 #24180f; }
+  .shout.go { animation: shout 1.3s steps(12); }
+  @keyframes shout { 0% { opacity: 0; transform: scale(.5); } 12% { opacity: 1; transform: scale(1.2); } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px); } }
+  .ctl.ouch { animation: ouch .4s steps(6); }
+  @keyframes ouch { 0% { background: rgba(255, 60, 80, .35); transform: translateX(-10px); } 30% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 100% { background: transparent; transform: none; } }
+  #card { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(20, 30, 10, .8); text-align: center; padding: 16px; z-index: 5; }
+  #card .wood { min-width: min(420px, 90vw); max-width: 94vw; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #card .big { font-size: 28px; font-weight: 700; line-height: 1.15; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  #card .big small { font-size: 16px; font-weight: 500; color: var(--ink-2); }
+  #card .num { font-size: 110px; font-weight: 700; color: var(--cl); line-height: 1; }
+  #card .aw { display: flex; align-items: center; gap: 8px; text-align: left; font-size: 20px; }
+  #card .aw small { display: block; }
+  .form { margin: auto; width: min(440px, 100%); display: flex; flex-direction: column; align-items: stretch; gap: 10px; text-align: center; }
+  .form .logo { display: flex; justify-content: center; }
+  .form input { font-size: 24px; padding: 8px; text-align: center; width: 100%; outline: none; color: var(--paper-ink); touch-action: manipulation; user-select: text; -webkit-user-select: text; }
+  .form input::placeholder { color: var(--paper-ink-2); }
+  .form input.code { letter-spacing: .25em; text-transform: uppercase; font-weight: 700; }
+  .form .btn { min-height: 64px; font-size: 24px; }
+  .note { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink-2); font-size: 16px; }
+  @media (orientation: portrait) { .ctl { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } #stick { order: 2; } #press { order: 1; } }
+  @media (orientation: landscape) and (max-height: 500px) { .form { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; width: min(720px, 100%); } .form .logo { width: 100%; } .form input { flex: 1 1 200px; } .form .btn { flex: 1 1 100%; min-height: 54px; } }
+  .shake { animation: shake .3s steps(4); }
   @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
 </style>
 </head>
 <body>
 <div id="join" class="form">
-  <h1>Little <span>Guys</span></h1>
-  <input id="name" maxlength="12" placeholder="Your name" autocomplete="nickname" enterkeyhint="go">
-  <input id="room" class="code" maxlength="5" placeholder="CODE" autocomplete="off" autocapitalize="characters">
+  <div class="logo" id="logo"></div>
+  <input id="name" class="paper" maxlength="12" placeholder="Your name" autocomplete="nickname" enterkeyhint="go">
+  <input id="room" class="paper code" maxlength="5" placeholder="CODE" autocomplete="off" autocapitalize="characters">
   <button id="go" class="btn go">Join the garden</button>
-  <div class="note">The code is on the TV. Hold your phone sideways, like a controller.</div>
+  <div class="note" id="note">The code is on the TV. Hold your phone sideways.</div>
 </div>
 <div id="pad" class="hidden" style="display:contents">
   <div class="top">
-    <span class="me"><canvas id="guy" width="16" height="24"></canvas><span id="me"></span></span>
+    <span class="me"><span id="guy"></span><span id="me"></span></span>
     <span class="score" id="score">0</span><span class="combo" id="combo"></span>
     <span class="sp"></span>
     <span class="wave" id="wave"></span><span class="beds" id="beds"></span>
-    <button id="ready" class="btn hidden">Ready</button>
+    <button id="ready" class="btn go hidden">Ready</button>
   </div>
   <div class="ctl" id="ctl">
-    <div class="zone rest" id="stick"><div id="base"></div><div id="knob"></div><div class="hint">drag anywhere here to walk</div></div>
+    <div class="zone rest" id="stick"><img id="base" class="px" alt=""><img id="knob" class="px" alt=""><div class="hint">drag here to walk</div></div>
     <div class="zone" id="press">
-      <div id="btn">
-        <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="7"/><circle id="ring" cx="50" cy="50" r="46" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289"/></svg>
-        <div class="face"><div class="lbl" id="lbl">BONK</div></div>
-      </div>
+      <div id="btn"><img id="ring" class="px" alt=""><img id="face" class="px" alt=""><div id="lbl"></div></div>
     </div>
     <div id="msg"></div>
     <div class="shout" id="shout"></div>
   </div>
-  <div id="tip" class="tip hidden"><span>Tabs in the way? <b>aA → Hide Toolbar</b>, or <b>Share → Add to Home Screen</b> for full screen</span><button id="tipx">✕</button></div>
-  <div id="card" class="hidden"><div><div id="cardmsg" class="big"></div><button id="cardready" class="btn go hidden">Ready</button></div></div>
+  <div id="card" class="hidden"><div class="wood"><div id="cardmsg" class="big"></div><button id="cardready" class="btn go hidden">Play again</button></div></div>
 </div>
 <script type="module">
 import { joinRoom, param, load, save } from './shared/net.js';
 import { SEATS, HOLD_DELAY, CHARGE_TIME, MIN_CHARGE, WATER_EVERY } from './game.js';
-import { TEAMS, frame, frameAt } from './sprites/pix.js';
-import gardener from './sprites/gardener.js';
+import { TEAMS, frameAt } from './sprites/pix.js';
+import { S as SPR } from './sprites/index.js';
+import { art, dataUrl, skin } from './ui.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const buzz = p => { try { navigator.vibrate?.(p); } catch (e) {} };
+skin(2);
+$('logo').innerHTML = art('logo', innerHeight < 500 ? 2 : 3);
+$('note').insertAdjacentHTML('afterbegin', art('phone_landscape', 2));
 
 $('name').value = param('name') || load('littleguys-name', '');
 $('room').value = (param('room') || '').toUpperCase();
@@ -135,87 +130,117 @@ function start() {
     onSeat: s => {
       seat = s; tm = TEAMS[SEATS.indexOf(s)] || TEAMS[0];
       document.body.style.setProperty('--c', tm.c); document.body.style.setProperty('--cl', tm.l); document.body.style.setProperty('--cd', tm.d);
-      push(true); render();
+      layout(); push(true); render();
     },
     onMessage: m => { if (m && m.t === 's') { prev = S; S = m; feel(); render(); } },
     onStatus: s => { status = s; if (s === 'open') push(true); render(); },
   });
-  render();
+  layout(); render();
 }
 $('go').onclick = start;
 $('name').addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
 
+// ---------- the painted controller: sized to the zones at a whole-number pixel scale ----------
+let K = 4, R = 52;
+function layout() {
+  const pr = $('press').getBoundingClientRect(), st = $('stick').getBoundingClientRect();
+  K = Math.max(2, Math.min(6, Math.floor(Math.min(pr.width * 0.86, pr.height * 0.92) / 52)));
+  const ks = Math.max(2, Math.min(5, Math.floor(Math.min(st.width, st.height) * 0.62 / 40)));
+  R = 40 * ks * 0.36;
+  // the ring is 52×52 round its centre; the button's housing centre is (24,27) in its 48×50 sprite, the face's centre
+  // (24,21.5) when up and (24,25) when down, so the label sits on the face and drops with it
+  const b = $('btn').style;
+  b.width = 52 * K + 'px'; b.height = 52 * K + 'px';
+  Object.assign($('ring').style, { left: '0px', top: '0px' });
+  Object.assign($('face').style, { left: (26 - 24) * K + 'px', top: (26 - 27) * K + 'px' });
+  b.setProperty('--ly', (26 - 27 + 21.5) * K + 'px'); b.setProperty('--lyd', (26 - 27 + 25) * K + 'px');
+  $('base').src = dataUrl(SPR.pad_base, 'idle', 0, ks, tm);
+  $('knob').src = dataUrl(SPR.pad_knob, 'idle', 0, ks, tm);
+  face(); rest();
+}
+let lastRing = -1;
+function face() { $('face').src = dataUrl(SPR.pad_button, held ? 'down' : 'up', 0, K, tm); }
+function ringAt(k) {
+  const i = Math.max(0, Math.min(15, Math.floor(k * 15.999)));
+  const show = k > 0;
+  $('ring').style.visibility = show ? 'visible' : 'hidden';
+  if (show && i !== lastRing) { lastRing = i; $('ring').src = dataUrl(SPR.pad_ring, 'seg', i, K, tm); }
+}
+
 // ---------- what the phone shows ----------
 const mine = () => (S && seat && S.p[seat]) || null;
+const MEDAL = ['medal_gold', 'medal_silver', 'medal_bronze'];
 function render() {
   if (!net) return;
   const me = mine(), ph = S?.ph;
   $('me').textContent = me ? me[5] : ($('name').value || 'You');
   $('wave').textContent = S && S.w ? `Wave ${S.w}` : '';
-  $('beds').textContent = S && S.w ? S.beds.map(h => h ? '🌱' : '🥀').join('') : '';
+  const beds = S && S.w ? S.beds.map(h => art(h ? 'seedling' : 'wilted', 2)).join('') : '';
+  if ($('beds').innerHTML !== beds) $('beds').innerHTML = beds;
   $('score').textContent = me ? me[0].toLocaleString() : '0';
-  $('combo').textContent = me && me[1] >= 2 ? `${me[1]}×` : '';
+  const combo = me && me[1] >= 2 ? `${me[1] >= 10 ? art('flame', 2) : ''}×${me[1]}` : '';
+  if ($('combo').innerHTML !== combo) $('combo').innerHTML = combo;
   document.body.classList.toggle('stun', !!(me && me[6]));
   const pre = ph === 'lobby' || ph === 'over';
   const isReady = !!(me && me[4]);
   $('ready').classList.toggle('hidden', !(pre && seat));
-  $('ready').classList.toggle('on', isReady);
   $('ready').classList.toggle('go', !isReady);
-  $('ready').textContent = isReady ? '✓ Ready' : 'Ready';
+  const rd = isReady ? `${art('check', 2)} Ready` : 'Ready';
+  if ($('ready').innerHTML !== rd) $('ready').innerHTML = rd;
 
-  // the button says what it will do here
+  // the button says what it will do where you are standing
   const ctx = me ? me[8] : 0;
   btnCtx = ctx;
-  const lbl = me && me[6] ? '💫<small>dizzy!</small>'
-    : ctx & 2 ? `🥕 TAP<small>${ctx & 1 ? 'harvest · hold: water' : 'to harvest'}</small>`
-    : ctx & 1 ? '💧 HOLD<small>to water · tap: bonk</small>'
+  const lbl = me && me[6] ? `${art('swirl', 3)}<small>dizzy!</small>`
+    : ctx & 2 ? `${art('carrot', 2)}PICK<small>${ctx & 1 ? 'tap · hold to water' : 'tap'}</small>`
+    : ctx & 1 ? `${art('drop', 3)}WATER<small>hold</small>`
     : 'BONK<small>hold to spin</small>';
   if ($('lbl').innerHTML !== lbl) $('lbl').innerHTML = lbl;
 
   let msg = '';
-  if (ph === 'lobby') msg = isReady ? `✓ Ready!<small>waiting for the others (${Object.values(S.p).filter(p => p[4]).length}/${S.n})</small>` : 'Practise on the weeds!<small>tap READY when you are set</small>';
-  else if (ph === 'break') msg = `Wave cleared!<small>next in ${S.cd}… water and harvest!</small>`;
-  else if (me && me[6]) msg = '💫 Dizzy!<small>a friend can bonk you awake</small>';
-  else if (me && me[9]) msg = '🍄 GIANT!';
+  if (ph === 'lobby') msg = isReady ? `Ready!<small>waiting for the others (${Object.values(S.p).filter(p => p[4]).length}/${S.n})</small>` : 'Bonk the weeds to practise<small>tap Ready when you are set</small>';
+  else if (ph === 'break') msg = `Wave cleared!<small>next one in ${S.cd}. Water and pick!</small>`;
+  else if (me && me[6]) msg = `${art('swirl', 2)} Dizzy!<small>a friend can bonk you awake</small>`;
+  else if (me && me[9]) msg = `${art('mushroom', 2)} Giant!`;
   if ($('msg').innerHTML !== msg) $('msg').innerHTML = msg;
 
   let card = '';
-  if (status === 'full') card = 'This garden is full<small>8 gardeners max. Try again in a bit.</small>';
-  else if (status !== 'open' || !seat) card = `Connecting…<small>${status === 'waiting' ? 'looking for the TV' : ''}</small>`;
-  else if (!S) card = 'Connected!';
-  else if (ph === 'countdown') card = `<div class="num">${S.cd || 'GO'}</div>`;
+  if (status === 'full') card = `${art('cross', 4)}This garden is full<small>8 gardeners at most. Try again soon.</small>`;
+  else if (status !== 'open' || !seat) card = `${art('clock', 4)}Connecting…<small>${status === 'waiting' ? 'looking for the TV' : ''}</small>`;
+  else if (!S) card = `${art('check', 4)}Connected!`;
+  else if (ph === 'countdown') card = `<div class="num">${S.cd || 'GO!'}</div>`;
   else if (ph === 'over' && S.rank) {
     const i = S.rank.indexOf(seat), aw = me && me[7];
-    card = `<div style="font-size:56px">${['🥇', '🥈', '🥉'][i] || '#' + (i + 1)}</div><div>${me ? me[0].toLocaleString() : 0} points</div>
-      ${aw ? `<div style="font-size:22px;margin-top:10px;color:var(--cl)">${aw[0]} ${esc(aw[1])}<small style="margin-top:2px">${esc(aw[2])}</small></div>` : ''}
-      <small>${isReady ? `waiting for the others (${Object.values(S.p).filter(p => p[4]).length}/${S.n})` : 'tap Ready to play again'}</small>`;
+    card = `${MEDAL[i] ? art(MEDAL[i], 6) : `<div class="num" style="font-size:64px">#${i + 1}</div>`}<div>${me ? me[0].toLocaleString() : 0} points</div>
+      ${aw ? `<div class="aw paper">${art(aw[0], 3)}<div><b>${esc(aw[1])}</b><small>${esc(aw[2])}</small></div></div>` : ''}
+      <small>${isReady ? `waiting for the others (${Object.values(S.p).filter(p => p[4]).length}/${S.n})` : 'Tap below to play again'}</small>`;
   }
   $('card').classList.toggle('hidden', !card);
   if ($('cardmsg').innerHTML !== card) $('cardmsg').innerHTML = card;
   $('cardready').classList.toggle('hidden', ph !== 'over');
-  $('cardready').textContent = isReady ? '✓ Ready' : 'Play again';
+  const cr = isReady ? `${art('check', 2)} Ready` : 'Play again';
+  if ($('cardready').innerHTML !== cr) $('cardready').innerHTML = cr;
 }
 const sendReady = () => { if (net) { net.act({ r: 1 }); buzz(15); } };
 $('ready').addEventListener('pointerdown', e => { e.stopPropagation(); sendReady(); });
 $('cardready').addEventListener('pointerdown', e => { e.stopPropagation(); sendReady(); });
 
 // my little guy in the corner, in my colour
-const gx = $('guy').getContext('2d');
+let guyKey = '';
 function guy(now) {
-  gx.clearRect(0, 0, 16, 24);
-  const me = mine(), set = me && me[6] ? 'dizzy' : held ? 'charge' : 'idle';
-  const f = frame(gardener, set, frameAt(gardener, set, now / 1000), tm);
-  $('guy').width = f.width; $('guy').height = f.height; gx.drawImage(f, 0, 0);
+  const me = mine(), set = me && me[6] ? 'dizzy' : held ? 'charge' : 'idle', i = frameAt(SPR.gardener, set, now / 1000);
+  const key = set + i + (tm ? tm.c : '');
+  if (key !== guyKey) { guyKey = key; $('guy').innerHTML = `<img class="px" src="${dataUrl(SPR.gardener, set, i, 2, tm)}" alt="">`; }
   requestAnimationFrame(guy);
 }
 requestAnimationFrame(guy);
 
 // ---------- buzz and shout for what happened on the TV ----------
-const TEAM = { rain: ['🌧️ RAIN!', [30, 30, 30, 30, 30]], bees: ['🐝 BEES!', [80, 30, 80]], giant: ['🍄 GIANT!', [100, 50, 100]], bloom: ['🌻 BLOOM!', [30, 30, 120]],
-  perfect: ['✨ PERFECT!', [30, 30, 30, 30, 120]], queen: ['👑 QUEEN DOWN!', [100, 50, 300]] };
+const TEAM = { rain: ['cloud_rain', 'Rain!', [30, 30, 30, 30, 30]], bees: ['bee', 'Bees!', [80, 30, 80]], giant: ['mushroom', 'Giant!', [100, 50, 100]], bloom: ['bloom', 'Bloom!', [30, 30, 120]],
+  perfect: ['star', 'Perfect!', [30, 30, 30, 30, 120]], queen: ['crown', 'Queen down!', [100, 50, 300]] };
 const BUZZ = { multi: [30, 20, 30, 20, 80], hit: 14, kill: [20, 30, 25], clink: [8, 20, 8], ouch: 220, gift: [30, 30, 30, 30, 120], harvest: [20, 40, 60], water: 25, wake: [20, 20, 40], woke: [60, 40, 60], charged: 35, spin: [40, 30, 80], launch: 18 };
-function shout(text, color = '#fff') {
-  const el = $('shout'); el.textContent = text; el.style.color = color;
+function shout(text, color = '#fff', icon = null) {
+  const el = $('shout'); el.innerHTML = (icon ? art(icon, 4) : '') + `<span>${text}</span>`; el.style.color = color;
   el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
 }
 function feel() {
@@ -224,15 +249,15 @@ function feel() {
   if (a && b[2] !== a[2]) {
     buzz(BUZZ[b[3]] || 10);
     if (['hit', 'kill', 'multi', 'harvest', 'gift'].includes(b[3])) { const k = $('btn'); k.classList.remove('hit'); void k.offsetWidth; k.classList.add('hit'); }
-    if (b[3] === 'multi') shout(b[10] >= 6 ? '⚡ MEGA SWEEP!' : ['', '', 'DOUBLE!', 'TRIPLE!', 'QUAD!', 'PENTA!'][b[10]] || 'MULTI!', b[10] >= 4 ? '#ff9a3c' : '#ffe14d');
+    if (b[3] === 'multi') shout(b[10] >= 6 ? 'MEGA SWEEP!' : ['', '', 'DOUBLE!', 'TRIPLE!', 'QUAD!', 'PENTA!'][b[10]] || 'MULTI!', b[10] >= 4 ? '#ff9a3c' : '#ffe14d', 'bolt');
     if (b[3] === 'ouch') { const c = $('ctl'); c.classList.remove('ouch'); void c.offsetWidth; c.classList.add('ouch'); }
-    if (b[3] === 'harvest') shout('🥕 +150', 'var(--accent)');
-    if (b[3] === 'woke') shout('😳 WOKEN UP!');
-    if (b[3] === 'clink') shout('clink! HOLD to spin', '#d8dcff');
-    if (b[1] >= 10 && b[1] % 10 === 0 && b[1] !== a[1]) shout(`${b[1]} COMBO! 🔥`, 'var(--cl)');
+    if (b[3] === 'harvest') shout('+150', 'var(--accent)', 'carrot');
+    if (b[3] === 'woke') shout('Awake!', '#fff', 'friends');
+    if (b[3] === 'clink') shout('Clink! Hold to spin', '#d8dcff');
+    if (b[1] >= 10 && b[1] % 10 === 0 && b[1] !== a[1]) shout(`${b[1]} combo!`, 'var(--cl)', 'flame');
   }
-  if (prev && S.beds.reduce((x, y) => x + y, 0) < prev.beds.reduce((x, y) => x + y, 0) && S.beds.filter(Boolean).length < prev.beds.filter(Boolean).length) { buzz([80, 40, 80]); shout('🥀 a bed wilted!', '#ff9a9a'); }
-  if (prev && S.tev !== prev.tev && TEAM[S.tl]) { const [t, v] = TEAM[S.tl]; shout(t); buzz(v); }
+  if (prev && S.beds.filter(Boolean).length < prev.beds.filter(Boolean).length) { buzz([80, 40, 80]); shout('A bed wilted!', '#ff9a9a', 'wilted'); }
+  if (prev && S.tev !== prev.tev && TEAM[S.tl]) { const [ic, t, v] = TEAM[S.tl]; shout(t, '#fff', ic); buzz(v); }
   if (prev && prev.ph !== S.ph && S.ph === 'wave') buzz([30, 60, 30]);
 }
 
@@ -251,21 +276,22 @@ function push(force) {
 }
 function setButton(down) {
   if (down === held) return;
-  held = down; $('btn').classList.toggle('down', down);
+  held = down; $('btn').classList.toggle('down', down); face();
   if (down) { pressAt = performance.now(); pressCtx = btnCtx; buzzedFull = false; buzz(10); }
   push(true);
 }
 
 // floating stick: it centres wherever your thumb lands, and follows if you drag past its edge
-const R = 52, DEAD = 0.14;
+const DEAD = 0.14;
 let stickId = null, bx = 0, by = 0, btnId = null;
 function rest() {
   const z = $('stick').getBoundingClientRect();
   bx = z.width / 2; by = z.height / 2; place(0, 0); $('stick').classList.add('rest');
 }
 function place(dx, dy) {
-  $('base').style.left = bx + 'px'; $('base').style.top = by + 'px';
-  $('knob').style.left = bx + dx + 'px'; $('knob').style.top = by + dy + 'px';
+  // whole pixels of the sprite's scale, so the knob moves in crisp steps
+  $('base').style.left = Math.round(bx) + 'px'; $('base').style.top = Math.round(by) + 'px';
+  $('knob').style.left = Math.round(bx + dx) + 'px'; $('knob').style.top = Math.round(by + dy) + 'px';
 }
 function stickMove(cx, cy) {
   const z = $('stick').getBoundingClientRect();
@@ -298,8 +324,8 @@ addEventListener('pointerup', up); addEventListener('pointercancel', up);
 const ours = e => !e.target.closest('#join');
 for (const t of ['touchstart', 'touchmove', 'touchend']) document.addEventListener(t, e => { if (ours(e) && e.cancelable) e.preventDefault(); }, { passive: false });
 for (const t of ['gesturestart', 'gesturechange', 'dblclick', 'contextmenu', 'selectstart']) document.addEventListener(t, e => { if (ours(e)) e.preventDefault(); }, { passive: false });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { stickId = btnId = null; jx = jy = 0; held = false; push(true); rest(); } });
-addEventListener('resize', rest); requestAnimationFrame(rest);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { stickId = btnId = null; jx = jy = 0; held = false; push(true); rest(); face(); } });
+addEventListener('resize', () => { if (net) layout(); });
 
 // the ring round the button: the spin charging up (or the watering can filling the bed), from the moment you press
 (function ring(now) {
@@ -310,9 +336,9 @@ addEventListener('resize', rest); requestAnimationFrame(rest);
     const full = !(pressCtx & 1) && k >= 1;
     $('btn').classList.toggle('full', full);
     if (full && !buzzedFull) { buzzedFull = true; buzz(30); }
-    $('ring').style.stroke = pressCtx & 1 ? '#8ac4ff' : k >= MIN_CHARGE ? '#fff' : 'rgba(255,255,255,.55)';
+    if (!(pressCtx & 1) && k < MIN_CHARGE) k = 0;
   } else $('btn').classList.remove('full');
-  $('ring').style.strokeDashoffset = 289 * (1 - k);
+  if (net) ringAt(k);
   requestAnimationFrame(ring);
 })(0);
 
@@ -333,10 +359,6 @@ addEventListener('keyup', e => {
   if (KEYV[e.key]) { keys.delete(e.key); fromKeys(); }
   else if (e.key === ' ') setButton(false);
 });
-const IOS = /iPhone|iPod/.test(navigator.userAgent) && !navigator.standalone && !matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
-function tip() { $('tip').classList.toggle('hidden', !(IOS && net && innerWidth > innerHeight && !load('littleguys-tip-off', false))); }
-$('tipx').addEventListener('pointerdown', e => { e.stopPropagation(); save('littleguys-tip-off', true); tip(); });
-addEventListener('resize', tip); setInterval(tip, 2000);
 if (param('auto') != null) start();
 // dev.html drives this for bots
 window.lgPad = { set(x, y, b) { jx = x; jy = y; if (!!b !== held) setButton(!!b); else push(); }, ready: sendReady, get seat() { return seat; } };

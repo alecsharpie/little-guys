@@ -1,9 +1,15 @@
 // The gardener: a chunky little guy (big straw hat with a team band, team overalls, boots) with a rake. 18×26, anchor feet.
 // Built per frame from parts: far arm, legs, torso (outlined together by mask), then the hand-drawn head stamp (its own ink),
 // the near arm and the rake (own ink). Faces right.
-import { grid, put, get, line, stamp, outline, parse, clone, shift, erase } from './lib.mjs';
+import { grid, put as putA, get, line, stamp as stampA, outline, parse, clone } from './lib.mjs';
+// The canvas is 30×30 with the feet at [15,30]; all figure coordinates below are in the original 18×26 frame
+// (feet at x 9, ground row 25) and are shifted by (OX, OY) when painted, so poses may reach into negative coords.
+const OX = 6, OY = 4;
+const put = (g, x, y, c) => putA(g, x + OX, y + OY, c);
+const stamp = (g, x, y, art, plus, map) => stampA(g, x + OX, y + OY, art, plus, map);
+const getL = (g, x, y) => get(g, x + OX, y + OY);
 
-export const W = 18, H = 26;
+export const W = 30, H = 30;
 export const PAL = {
   k: '#24180f',                                  // warm ink
   a: '#f2d2b0', s: '#e8c39e', S: '#c9a07a', z: '#8a5a3a', p: '#f09a86',   // skin + blush
@@ -18,6 +24,7 @@ export const PAL = {
   e: '#9fd8ff', E: '#4c95dc', F: '#2b5aa0',      // water
   v: '#e2ecee', V: '#a6bcc3', X: '#64808a', K: '#2c3a40',      // galvanised watering can
   x: '#ffffff',
+  d: '#7a4f33', r: '#a87650', t: '#4e301e',     // kicked-up soil
 };
 
 // ---------------- heads (hat + face), 16 wide, ink baked in. Placed with top-left at (hx, hy). ----------------
@@ -80,6 +87,7 @@ const FACE = {
   blink: [[9, 10, 'k'], [10, 10, 'k'], ...BLUSH],
   shut: [[9, 10, 'k'], [10, 10, 'k'], [8, 9, 'S'], [11, 9, 'S'], ...BLUSH],
   happy: [[9, 10, 'k'], [10, 9, 'k'], [11, 10, 'k'], [8, 11, 'p'], [9, 11, 'p'], [10, 11, 'p']],
+  squeeze: [[9, 9, 'k'], [10, 10, 'k'], [9, 11, 'k'], [8, 9, 'S'], [11, 12, 'k'], [12, 12, 'k']],
   grit: [[10, 9, 'k'], [10, 10, 'k'], [9, 8, 'k'], [10, 8, 'k'], [9, 11, 'k'], [10, 11, 'x'], [11, 11, 'k']],
   swirlA: [...RING.filter((_, i) => i !== 6 && i !== 7).map(([x, y]) => [x, y, 'z']), [10, 10, 'k'], [8, 11, 'p'], [7, 11, 'p']],
   swirlB: [...RING.filter((_, i) => i !== 2 && i !== 3).map(([x, y]) => [x, y, 'z']), [10, 10, 'k'], [8, 11, 'p'], [7, 11, 'p']],
@@ -210,7 +218,13 @@ export function figure(p = {}) {
   // outline body by mask, ink k; on the lit top-left edges of team cloth use teamdark (selective)
   g = outline(g, (nb, x, y) => 'k');
   // head
-  stamp(g, 1 + lean + (p.headDx || 0), 3 + bob + (p.headDy || 0), headArt(kind, p.face));
+  const hx0 = 1 + lean + (p.headDx || 0), hy0 = 3 + bob + (p.headDy || 0), art = headArt(kind, p.face);
+  if (p.hatUp) {
+    // the hat pops off the head: paint the face + a hair dome, then the hat (rows 0..7) higher up, optionally nudged sideways
+    const face = art.map((r, j) => j < 6 ? r.map(() => '.') : j === 6 ? [...'...kkIIIIIkk....'] : j === 7 ? [...(kind === 'B' ? '..kIHHHHHHHIk...' : '..kIHHHHHHHzk...')] : r);
+    stamp(g, hx0, hy0, face);
+    stamp(g, hx0 + (p.hatDx || 0), hy0 - p.hatUp, art.slice(0, 8));
+  } else stamp(g, hx0, hy0, art);
   if (p.afterHead) p.afterHead(g);
   // near arm + rake
   const before = clone(g);
@@ -232,7 +246,24 @@ export function figure(p = {}) {
 // ---------------- frame sets ----------------
 const up = (x, y0, y1) => ({ x0: x, y0, x1: x, y1, head: 'up' });
 // bright smear arc pixels (drawn over, no ink)
-const smear = pts => g => { for (const [x, y, c] of pts) if (get(g, x, y) === '.' || 'yYhj'.includes(get(g, x, y))) put(g, x, y, c || 'x'); };
+const smear = pts => g => { for (const [x, y, c] of pts) if (getL(g, x, y) === '.' || 'yYhj'.includes(getL(g, x, y))) put(g, x, y, c || 'x'); };
+// a bold motion-smear band: cells whose distance from (cx,cy) is in [r0,r1] (y scaled by sy) and angle (deg, screen, y down)
+// between a0 and a1. Leading edge (near a1) is full width white→team light; it thins toward a0. Only paints empty cells.
+const arcSmear = (cx, cy, r0, r1, a0, a1, sy = 1, over = '') => g => {
+  for (let y = -6; y < 28; y++) for (let x = -8; x < 26; x++) {
+    const dx = x + 0.5 - cx, dy = (y + 0.5 - cy) / sy, r = Math.hypot(dx, dy);
+    let a = Math.atan2(dy, dx) * 180 / Math.PI;
+    const lo = Math.min(a0, a1), hi = Math.max(a0, a1);
+    while (a < lo) a += 360; while (a > lo + 360) a -= 360;
+    if (a > hi) continue;
+    const t = (a - a0) / (a1 - a0);                    // 0 at the tail, 1 at the leading edge
+    const w = (r1 - r0) * (0.35 + 0.65 * t);
+    if (r < r1 - w || r > r1) continue;
+    const c = getL(g, x, y);
+    if (c !== '.' && !over.includes(c)) continue;
+    put(g, x, y, r > r1 - w * 0.5 && t > 0.25 ? 'x' : 'L');
+  }
+};
 // watering can stamps (own ink): level and tipped
 const CAN = {
   level: `
@@ -270,26 +301,78 @@ export function build() {
   ];
   const walkS = [0, 1, 2, 3, 4, 5, 6, 7].map(walk);
   const wide = [[10, 11, 0], [5, 4, 0]];
+  // ---- bonk: 0 smear strike, 1 impact hold, 2 follow-through bounce, 3-5 recover through a diagonal to idle ----
+  const lunge = [[10, 13, 0], [5, 3, 0]];
+  const dirt = pts => g => { for (const [x, y, c] of pts) put(g, x, y, c); };
   const bonk = [
-    // 0: the strike, rake head slammed into the ground in front, smear arc over the swing
-    figure({ bob: 1, lean: 1, legs: wide, face: 'grit', far: [12, 18], near: [13, 19], rake: { x0: 11, y0: 16, x1: 15, y1: 21, head: 'down' },
-      after: smear([[8, 0], [9, 0], [10, 0, 'm'], [11, 1], [12, 1], [13, 2], [14, 2, 'm'], [15, 3], [16, 4], [16, 5, 'm'], [17, 6], [17, 7], [17, 8], [17, 9, 'm'], [17, 10], [17, 11]]) }),
-    // 1: impact hold / bounce
-    figure({ bob: 1, lean: 1, legs: wide, face: 'grit', far: [12, 18], near: [13, 19], rake: { x0: 11, y0: 15, x1: 15, y1: 20, head: 'down' } }),
-    // 2: follow-through, rake rising
-    figure({ lean: 1, legs: wide, far: [11, 19], near: [14, 18], rake: { x0: 14, y0: 23, x1: 16, y1: 5, head: 'up' } }),
-    // 3: recover
-    figure({ legs: [[9, 9, 0], [5, 5, 0]], near: [14, 19], rake: up(15, 23, 3) }),
+    figure({ bob: 1, lean: 2, legs: lunge, face: 'grit', hatUp: 1, hatDx: -1, far: [13, 18], near: [14, 18],
+      rake: { x0: 12, y0: 15, x1: 20, y1: 23, head: 'down' },
+      after: g => { arcSmear(11, 16, 10, 13.5, -130, 38, 1)(g); } }),
+    figure({ bob: 2, lean: 2, legs: lunge, face: 'grit', far: [13, 19], near: [14, 19],
+      rake: { x0: 12, y0: 16, x1: 20, y1: 24, head: 'down' },
+      after: dirt([[17, 22, 'r'], [18, 21, 'd'], [23, 21, 'r'], [24, 22, 'd'], [21, 20, 't'], [16, 24, 'd'], [24, 24, 'r']]) }),
+    figure({ bob: 1, lean: 2, legs: lunge, face: 'grit', far: [13, 18], near: [14, 18],
+      rake: { x0: 12, y0: 14, x1: 20, y1: 19, head: 'down' },
+      after: dirt([[18, 18, 'd'], [23, 17, 'r'], [21, 15, 't']]) }),
+    figure({ bob: 0, lean: 1, legs: [[10, 11, 0], [5, 4, 0]], far: [12, 19], near: [14, 18],
+      rake: { x0: 11, y0: 22, x1: 19, y1: 6, head: 'up' } }),
+    figure({ lean: 0, legs: [[9, 10, 0], [5, 5, 0]], far: [6, 20], near: [14, 19],
+      rake: { x0: 14, y0: 24, x1: 17, y1: 3, head: 'up' } }),
+    figure({ rake: up(15, 24, 2), near: [14, 19], far: [5, 20] }),
   ];
+  // ---- charge: 0-1 wind-up (once), 2-3 the coiled hold (loop, 1 px shake, glint on the tines) ----
+  const coil = [[9, 11, 0], [5, 2, 0]];
+  const glint = (pts) => g => { for (const [x, y, c] of pts) put(g, x, y, c); };
   const charge = [
-    figure({ bob: 1, lean: -1, legs: wide, face: 'grit', far: [9, 17], near: [10, 17], rake: { x0: 12, y0: 19, x1: 4, y1: 2, head: 'up', behind: true } }),
-    figure({ bob: 1, lean: 0, headDx: -1, legs: wide, face: 'grit', far: [9, 17], near: [11, 17], rake: { x0: 13, y0: 19, x1: 5, y1: 2, head: 'up', behind: true } }),
+    figure({ lean: -1, legs: [[9, 10, 0], [5, 4, 0]], face: 'grit', far: [10, 17], near: [11, 17],
+      rake: { x0: 13, y0: 20, x1: 6, y1: 1, head: 'up', behind: true }, after: arcSmear(10, 18, 13, 15, -80, -110, 1) }),
+    figure({ bob: 2, lean: -2, legs: coil, face: 'grit', far: [9, 17], near: [10, 17],
+      rake: { x0: 13, y0: 20, x1: -3, y1: 5, head: 'up', behind: true }, after: arcSmear(9, 17, 12, 14, -95, -140, 1) }),
+    figure({ bob: 2, lean: -2, legs: coil, face: 'grit', far: [9, 17], near: [10, 17],
+      rake: { x0: 13, y0: 20, x1: -3, y1: 5, head: 'up', behind: true }, after: glint([[-5, 3, 'x'], [-5, 2, 'L']]) }),
+    figure({ bob: 2, lean: -1, headDx: 0, legs: coil, face: 'grit', far: [10, 17], near: [11, 17],
+      rake: { x0: 14, y0: 20, x1: -2, y1: 5, head: 'up', behind: true }, after: glint([[-1, 3, 'x'], [-1, 2, 'L']]) }),
   ];
-  const spin = [
-    figure({ head: 'F', legs: [[9, 9, 0], [6, 6, 0]], far: [4, 20], near: [13, 19], rake: { x0: 11, y0: 19, x1: 15, y1: 19, head: 'right' } }),
-    flipXg(figure({ legs: [[9, 9, 0], [5, 5, 0]], near: [13, 20], far: [5, 20], rake: { x0: 12, y0: 20, x1: 14, y1: 22, head: 'down' } })),
-    figure({ head: 'B', torso: 'B', legs: [[9, 9, 0], [6, 6, 0]], near: [13, 20], far: [4, 19], rake: { x0: 6, y0: 19, x1: 2, y1: 19, head: 'left', behind: true } }),
-    figure({ legs: [[9, 9, 0], [5, 5, 0]], near: [12, 20], far: [5, 19], rake: { x0: 8, y0: 18, x1: 3, y1: 10, head: 'up', behind: true } }),
+  // ---- spin: a whirl, rake out at arm's length sweeping round (screen ellipse rx 12, ry 6 about the hands) ----
+  const SC = [9, 19];
+  const tip = deg => [Math.round(SC[0] + Math.cos(deg * Math.PI / 180) * 12), Math.round(SC[1] + Math.sin(deg * Math.PI / 180) * 6)];
+  const trail = (deg, dir = 1) => g => {   // smear trailing the tip back along the ellipse (the rake turns toward smaller angles)
+    for (let k = 4; k <= 75; k += 2) {
+      const a = (deg + k * dir) * Math.PI / 180, t = 1 - k / 75;
+      for (const r of [12, 11, 13]) {
+        if (r !== 12 && t < 0.45) continue;
+        const x = Math.round(SC[0] + Math.cos(a) * r), y = Math.round(SC[1] + Math.sin(a) * r / 2);
+        if (getL(g, x, y) === '.') put(g, x, y, t > 0.55 && r === 12 ? 'x' : 'L');
+      }
+    }
+  };
+  const spinFrame = (deg, view, flip) => {
+    const [tx, ty] = tip(deg);
+    const head = view === 'F' ? 'down' : tx > SC[0] + 6 ? 'right' : tx < SC[0] - 6 ? 'left' : 'down';
+    const behind = Math.sin(deg * Math.PI / 180) < -0.3;
+    const hand = [Math.round(SC[0] + Math.cos(deg * Math.PI / 180) * 5), 19];
+    const g = figure({ head: view === 'B' ? 'B' : view === 'F' ? 'F' : 'R', torso: view === 'B' ? 'B' : view === 'F' ? 'F' : 'R',
+      legs: view === 'F' || view === 'B' ? [[9, 9, 0], [6, 6, 0]] : [[9, 10, 0], [5, 4, 0]],
+      far: view === 'F' ? [4, 20] : [5, 20], near: hand,
+      rake: { x0: hand[0], y0: 19, x1: tx, y1: ty, head, behind } , after: trail(deg, flip ? -1 : 1) });
+    return flip ? flipXg(g) : g;
+  };
+  // front (rake toward the viewer) → ¾ → side (rake 12 px forward) → back (rake away) → side (facing left) → ¾
+  const spin = [spinFrame(90, 'F'), spinFrame(40, 'R'), spinFrame(0, 'R'), spinFrame(-90, 'B'), spinFrame(0, 'R', true), spinFrame(40, 'R', true)].map((g, i) => g);
+  // spinFrame(…, flip) mirrors the body; the rake angle is mirrored before painting so the result points the right way
+  // ---- hurt: knocked backwards, hat popping up, eyes squeezed, rake flung up ----
+  const hurt = [
+    figure({ lean: -2, legs: [[8, 7, 0], [5, 3, 1]], face: 'squeeze', hatUp: 3, hatDx: -1, far: [2, 15], farElbow: [3, 18], near: [14, 12], nearElbow: [13, 16],
+      rake: { x0: 17, y0: 19, x1: 12, y1: -2, head: 'up' } }),
+    figure({ lean: -3, bob: -1, legs: [[8, 6, 1], [5, 2, 2]], face: 'squeeze', hatUp: 5, hatDx: -2, far: [1, 14], farElbow: [2, 17], near: [13, 11], nearElbow: [13, 15],
+      rake: { x0: 19, y0: 16, x1: 8, y1: -3, head: 'up' } }),
+  ];
+  // ---- pluck: crouch and grab, yank upward, arms high ----
+  const pluck = [
+    figure({ bob: 3, lean: 2, legs: [[10, 12, 0], [5, 4, 0]], face: 'grit', far: [13, 24], near: [15, 24], farElbow: [11, 22], nearElbow: [14, 22], rake: null }),
+    figure({ bob: -1, lean: -1, legs: [[9, 11, 0], [5, 3, 0]], face: 'grit', hatUp: 1, far: [12, 15], near: [13, 14], farElbow: [10, 18], nearElbow: [13, 18], rake: null,
+      after: dirt([[15, 23, 'r'], [17, 22, 'd'], [13, 24, 'd'], [18, 24, 't']]) }),
+    figure({ bob: -2, face: 'happy', hatUp: 1, legs: [[9, 10, 1], [5, 4, 1]], far: [1, 8], farElbow: [2, 13], near: [16, 8], nearElbow: [15, 13], rake: null }),
   ];
   const can = (kind, x, y, drops = []) => g => { stamp(g, x, y, CAN[kind]); for (const [dx, dy, c] of drops) put(g, dx, dy, c || 'E'); };
   const water = [
@@ -320,6 +403,6 @@ export function build() {
     figure({ face: 'happy', far: [2, 12], farElbow: [2, 16], near: [16, 12], nearElbow: [15, 16], rake: up(16, 18, 2) }),
     figure({ bob: -1, face: 'happy', legs: [[9, 10, 1], [5, 4, 1]], far: [1, 10], farElbow: [2, 15], near: [16, 10], nearElbow: [15, 15], rake: up(16, 16, 1) }),
   ];
-  return { idle, walk: walkS, bonk, charge, spin, water, dizzy, sleep, cheer };
+  return { idle, walk: walkS, bonk, charge, spin, water, dizzy, sleep, cheer, hurt, pluck };
 }
 function flipXg(g) { const out = g.map(r => r.slice().reverse()); return out.map(r => [...r.slice(0)]); }

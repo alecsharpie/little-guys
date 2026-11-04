@@ -1,36 +1,67 @@
-/* Shared look for the TV and the phones. */
+/* Shared look for the TV and the phones: a pixel font, and panels and buttons painted as pixel art (ui.js puts the
+   9-slice images into the --panel / --paper / --btn / --gold / --chip variables at a whole-number scale). */
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
 :root {
   --bg: #1d2a14;
   --bg-2: #2a3a1c;
-  --panel: #34482a;
+  --wood: #8a6a3a;
+  --wood-dk: #5a3a18;
+  --ink: #fbf3d6;
+  --ink-2: #e6d3a3;
+  --ink-dk: #3b2614;
+  --paper-ink: #4a3220;
+  --paper-ink-2: #8a6a48;
+  --accent: #ffd84a;
+  --good: #a6e05a;
+  --bad: #ff7a6a;
   --line: #5a7a3e;
-  --ink: #fbf8e8;
-  --ink-2: #c4d0a4;
-  --accent: #ffd23f;
-  --accent-ink: #2a1d00;
-  --good: #5be37d;
-  --bad: #ff6b7f;
-  --radius: 16px;
+  --px: 3px;
   --tap: 64px;
-  font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font: "Pixelify Sans", ui-rounded, system-ui, sans-serif;
+  font-family: var(--font);
+  word-spacing: .18em;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
-body { -webkit-tap-highlight-color: transparent; }
+body { -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: none; }
 button, input { font: inherit; color: inherit; }
 .hidden { display: none !important; }
+img.px, .px { image-rendering: pixelated; image-rendering: crisp-edges; }
+img.px { display: inline-block; vertical-align: middle; flex: none; }
+.shadow { text-shadow: 0 var(--px) 0 var(--ink-dk); }
+
+/* a wooden sign */
+.wood {
+  border: var(--panel-w, 24px) solid var(--wood-dk); border-image: var(--panel) var(--panel-s, 24) fill / var(--panel-w, 24px) repeat;
+  background: var(--wood); image-rendering: pixelated; color: var(--ink); text-shadow: 0 calc(var(--px) * .67) 0 var(--ink-dk);
+}
+/* a cream seed-packet card */
+.paper {
+  border: var(--paper-w, 24px) solid #e8d6a8; border-image: var(--paper) var(--paper-s, 24) fill / var(--paper-w, 24px) repeat;
+  background: #f4e6c0; image-rendering: pixelated; color: var(--paper-ink); text-shadow: none;
+}
+.paper.sm { border-width: var(--paper-sm-w, 16px); border-image: var(--paper-sm) var(--paper-sm-s, 16) fill / var(--paper-sm-w, 16px) repeat; }
+.wood.sm { border-width: var(--panel-sm-w, 16px); border-image: var(--panel-sm) var(--panel-sm-s, 16) fill / var(--panel-sm-w, 16px) repeat; }
+/* a dark soil tag */
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; border: var(--chip-w, 12px) solid #3e2619; border-image: var(--chip) var(--chip-s, 12) fill / var(--chip-w, 12px) repeat;
+  background: #4a3020; image-rendering: pixelated; color: var(--ink); text-shadow: 0 2px 0 #1a0f08; padding: 0 2px;
+}
 
 .btn {
-  min-height: var(--tap); padding: 0 22px; border-radius: var(--radius);
-  border: 2px solid var(--line); background: var(--panel); font-size: 20px; font-weight: 800;
-  cursor: pointer; touch-action: manipulation; user-select: none;
+  min-height: var(--tap); padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border: var(--btn-w, 18px) solid #2f7d3a; border-image: var(--btn) var(--btn-s, 18) fill / var(--btn-w, 18px) repeat;
+  background: #5fb83f; color: #fff; text-shadow: 0 calc(var(--px) * .67) 0 #1c4a2c;
+  font-size: 22px; font-weight: 700; cursor: pointer; touch-action: manipulation; user-select: none; image-rendering: pixelated;
 }
-.btn:active { transform: translateY(1px); }
-.btn.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn.sm { min-height: 44px; font-size: 16px; padding: 0 16px; }
-.btn:disabled { opacity: .4; cursor: default; }
+.btn:active, .btn.down { border-image-source: var(--btn-down); padding-top: calc(var(--px) * 3); }
+/* the face is the top 13 of 18 rows, so the label sits a little high; pressed, the face drops 3 px with it */
+.btn { padding-bottom: calc(var(--px) * 2); }
+.btn.go { border-image-source: var(--gold); background: #e9c46a; color: var(--ink-dk); text-shadow: 0 calc(var(--px) * .67) 0 #fbe7a1; }
+.btn.go:active, .btn.go.down { border-image-source: var(--gold-down); }
+.btn.sm { min-height: 48px; font-size: 18px; }
+.btn:disabled { opacity: .45; cursor: default; }
 
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--line); font-size: 15px; color: var(--ink-2); }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+.dot { width: 10px; height: 10px; background: var(--bad); box-shadow: 0 0 0 2px var(--ink-dk); }
 .dot.on { background: var(--good); }

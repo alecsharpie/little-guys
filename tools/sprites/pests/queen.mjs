@@ -3,6 +3,7 @@
 // mandibles. walk 4 (heavy, the body bobs), munch 2, roar 2 (rears up, mandibles wide, front legs raised).
 // Anchor = ground point under the body.
 import { grid, volumes, outline, line, put, get, over, emit, stamp, recolor } from './kit.mjs';
+import { squash, shock, deadBug, xeye } from './react.mjs';
 
 const PAL = {
   w: '#fff6ff', // specular
@@ -21,6 +22,7 @@ const PAL = {
   k: '#7a68a6', K: '#3a2c5a', j: '#221838', // legs: lit, shade, far
   e: '#ffb640', E: '#fff2c0', // eyes
   R: '#e8466a', // ruby on the crown
+  p: '#d4bce6', P: '#9a7cc0', q: '#5e4488', // belly (lilac)
   g: '#a6e05a', G: '#5fb83f', // leaf crumbs
 };
 const MATS = {
@@ -37,7 +39,7 @@ function leg(L, [hx, hy], [kx, ky], [fx, fy], far) {
   put(L, fx, fy, far ? 'j' : 'o'); if (!far) put(L, fx + 1, fy, 'o');     // foot claw
 }
 
-function queen({ legs = [0, 0, 0, 0, 0, 0], lift = [], by = 0, rear = 0, open = 0, dip = 0, crumb = 0, raise = 0 }) {
+function queen({ legs = [0, 0, 0, 0, 0, 0], lift = [], by = 0, rear = 0, open = 0, dip = 0, crumb = 0, raise = 0, shut = 0, crownDy = 0 }) {
   const Wd = 36, Ht = 28;
   // rear: rotate the forms about the back end (pivot) by -rear radians, so the front lifts
   const px = 3, py = 23, ca = Math.cos(-rear), sa = Math.sin(-rear);
@@ -122,7 +124,7 @@ oBC.oCo
   line(L, hx - 1, hy - 3, hx - 2, hy - 7, 'j'); line(L, hx - 2, hy - 7, hx, hy - 9, 'j'); put(L, hx + 1, hy - 9, 'K'); put(L, hx + 1, hy - 10, 'K');
   const out = over(over(over(L, M), g), TOP);
   // crown: three gold points with a ruby, sitting on top of the head
-  stamp(out, hx - 4, hy - 8, `
+  stamp(out, hx - 4, hy - 8 + crownDy, `
 .o.o.o.
 oYoyoyo
 oYyyyQo
@@ -130,9 +132,50 @@ oyyRyQo
 .oQQQo.
 ..ooo..`);
   // eyes: amber with a glint
-  put(out, hx + 1, hy - 1, 'e'); put(out, hx + 1, hy - 2, 'E'); put(out, hx + 2, hy - 1, 'o');
+  if (shut) { put(out, hx, hy - 2, 'o'); put(out, hx + 1, hy - 1, 'o'); put(out, hx, hy, 'o'); put(out, hx - 1, hy - 1, 'm'); } // squeezed ">"
+  else { put(out, hx + 1, hy - 1, 'e'); put(out, hx + 1, hy - 2, 'E'); put(out, hx + 2, hy - 1, 'o'); }
   if (crumb) { put(out, 35, 22, 'g'); put(out, 34, 24, 'G'); put(out, 33, 21, 'G'); }
   return out;
+}
+
+// hurt: a big recoil. The carapace squashes 2 px, the head snaps up with the jaws sprung, legs splay, eyes squeezed
+// shut and the crown jumps off her head for a moment; frame 1 is the rebound
+function hurt(k) {
+  const g = squash(queen({ legs: k ? [-1, 0, 1, -1, 0, 1] : [-2, 0, 2, -2, 0, 2], rear: k ? 0.06 : 0.12, open: 1, shut: 1, crownDy: k ? -1 : -3 }), k ? [15] : [13, 16], 0);
+  shock(g, 29, k ? 5 : 6, 'w', true);
+  return g;
+}
+// dead: flipped on her back and dazed: lilac belly up, six thick legs kicking, jaws agape, X eyes, crown sliding off
+const deadMats = { shell: { t: ['w', 'l', 'm', 's', 'd'], thr: [0.95, 0.7, 0.3, -0.2] }, belly: { t: ['p', 'P', 'q'], thr: [0.5, 0.0] }, head: { t: ['l', 'm', 's', 'd'], thr: [0.75, 0.35, -0.1] } };
+const CROWN = [`
+..o......
+.oYo.o...
+oYyyoyo.o
+.oyRyyoyo
+..oQQyyQo
+...ooQQo.
+.....oo..`, `
+......o..
+...o.oYo.
+.o.oyoyyo
+oyoyyRyo.
+oQyyQQo..
+.oQQoo...
+..oo.....`];
+function dead(k) {
+  const { g } = deadBug({ w: 36, h: 28, cx: 15, cy: 20.5, rx: 12.6, ry: 6.4, mats: deadMats, head: [28.4, 21.4, 3.2, 3.4], hips: [[8, -1], [14, 0], [20, 1], [11, -1], [17, 1]], len: 7, leg: 'k', leg2: 'K', thick: 1, ink: 'o', rim: 's', segs: [10, 13, 16, 19], k });
+  // gold trim on the upturned rim
+  for (let x = 4; x < 26; x++) for (let y = 27; y > 18; y--) { if (g[y][x] === 'o' || g[y][x] === '.') continue; if (y < 27 && (g[y + 1][x] === 'o')) { if (x % 2 === 0 || 1) g[y][x] = x < 12 ? 'y' : 'Q'; } break; }
+  put(g, 6, 24, 'w'); put(g, 7, 25, 'c');
+  xeye(g, 28, 19, 'e', 2);
+  // jaws agape, waving
+  const t = k;
+  line(g, 31, 20, 34, 17 + t, 'B'); line(g, 32, 20, 35, 18 + t, 'A'); put(g, 35, 16 + t, 'o');
+  line(g, 31, 23, 34, 25 - t, 'C'); line(g, 32, 23, 35, 24 - t, 'B'); put(g, 35, 26 - t, 'o');
+  // crown knocked askew, rocking
+  stamp(g, k ? 27 : 25, k ? 10 : 11, CROWN[k]);
+  shock(g, 30, 9, 'Y');
+  return g;
 }
 
 const A = [0, 2, 4], B = [1, 3, 5];
@@ -141,7 +184,7 @@ export default function run() {
   return emit('queen', 'the boss beetle, a crowned lacquered violet carapace', {
     anchor: [18, 28],
     palette: PAL,
-    fps: { walk: 7, roar: 5 },
+    fps: { walk: 7, roar: 5, hurt: 14, dead: 14 },
     frames: {
       walk: [
         queen({ ...pose(1, -1) }),
@@ -153,6 +196,8 @@ export default function run() {
         queen({ ...pose(0, 0), open: 1 }),
         queen({ ...pose(0, 0), dip: 1, crumb: 1 }),
       ],
+      hurt: [hurt(0), hurt(1)],
+      dead: [dead(0), dead(1)],
       roar: [
         queen({ ...pose(0, 0), rear: 0.2, open: 1, raise: 1 }),
         queen({ ...pose(0, 0), rear: 0.25, open: 2, raise: 2 }),

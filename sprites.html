@@ -90,9 +90,9 @@ for (const [title, ids] of Object.entries(groups)) {
     }
     if (id === 'gardener') {
       const wrap = document.createElement('div'); wrap.className = 'set';
-      const c = document.createElement('canvas'); c.width = 8 * 20 * 3; c.height = 26 * 3; c.className = 'chk';
+      const c = document.createElement('canvas'); c.width = 8 * 32 * 3; c.height = 30 * 3; c.className = 'chk';
       const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
-      TEAMS.forEach((tm, k) => { const f = frame(spec, 'idle', 0, tm); x.drawImage(f, k * 60, 0, f.width * 3, f.height * 3); });
+      TEAMS.forEach((tm, k) => { const f = frame(spec, 'idle', 0, tm); x.drawImage(f, k * 96, 0, f.width * 3, f.height * 3); });
       wrap.append('teams', c); sets.appendChild(wrap);
     }
     grid.appendChild(card);
