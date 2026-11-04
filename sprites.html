@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Little Guys · Sprites</title>
+<link rel="stylesheet" href="shared/theme.css">
+<style>
+  /* Every sprite, every frame set, animated: the place to look at the art (tools/shot.mjs sprites.html --full). */
+  body { padding: 20px; height: auto; overflow: auto; }
+  h1 { margin: 0 0 4px; } h2 { margin: 28px 0 10px; }
+  .note { color: var(--ink-2); margin-bottom: 14px; }
+  .scene { image-rendering: pixelated; border-radius: 8px; display: block; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; } .card h3 small { color: var(--ink-2); font-weight: 600; }
+  .sets { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .set { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; font-size: 12px; color: var(--ink-2); }
+  canvas { image-rendering: pixelated; }
+  .chk { background: repeating-conic-gradient(#3a2e6a 0% 25%, #2d2457 0% 50%) 0 0 / 12px 12px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Little Guys · sprites</h1>
+<div class="note">Top: the sprites together at game scale (×3) on the lawn. Below: every set animated at ×6, with its frames at ×4.</div>
+<canvas id="scene" class="scene"></canvas>
+<div id="cards"></div>
+<script type="module">
+import { S } from './sprites/index.js';
+import { draw, frame, frameList, frameAt, TEAMS } from './sprites/pix.js';
+
+// ---------- the scene: 30 px per world unit, the same as the game ----------
+const SW = 300, SH = 150, Z = 3;
+const sc = document.getElementById('scene'); sc.width = SW * Z; sc.height = SH * Z;
+const low = document.createElement('canvas'); low.width = SW; low.height = SH;
+const lx = low.getContext('2d'), sx = sc.getContext('2d');
+const CROPS = ['crop_carrot', 'crop_cabbage', 'crop_pumpkin', 'crop_tomato', 'crop_sunflower', 'crop_strawberry'];
+const PLANT = [[-14, -7], [14, -7], [-14, 9], [14, 9]];
+function plot(x, y, hp, crop, stages) {
+  draw(lx, S.plot, 'soil', 3 - hp, x, y);
+  PLANT.forEach(([dx, dy], i) => { const s = stages[i]; if (s == null) return; draw(lx, S[crop], s < 0 ? 'wilt' : 'grow', Math.max(0, s), x + dx, y + dy); });
+}
+function scene(t) {
+  for (let y = 0; y < SH; y += 32) for (let x = 0; x < SW; x += 32) draw(lx, S.grass, 'idle', (x * 7 + y * 3) / 32 % 3, x, y);
+  [[20, 20, 0], [270, 30, 1], [140, 140, 2], [60, 130, 0], [230, 120, 1]].forEach(([x, y, v]) => draw(lx, S.tufts, 'idle', v, x, y));
+  [[40, 40, 0], [250, 70, 1], [180, 20, 2], [110, 135, 3], [285, 140, 0]].forEach(([x, y, v]) => draw(lx, S.flowers, 'idle', v, x, y));
+  draw(lx, S.stones, 'idle', 0, 10, 100); draw(lx, S.stones, 'idle', 1, 290, 100);
+  draw(lx, S.shed, 'idle', 0, 34, 70); draw(lx, S.barrel, 'idle', 0, 70, 66); draw(lx, S.bush, 'idle', 0, 280, 60);
+  plot(110, 42, 3, 'crop_carrot', [0, 1, 2, 3]); plot(176, 42, 2, 'crop_cabbage', [1, 2, 3, 3]); plot(242, 42, 3, 'crop_pumpkin', [3, 2, 1, 0]);
+  plot(110, 100, 1, 'crop_tomato', [3, 2, -1, 1]); plot(176, 100, 0, 'crop_sunflower', [-1, -1, -1, -1]); plot(242, 100, 2, 'crop_strawberry', [0, 3, 2, 1]);
+  const g = (set, x, y, team, flip) => draw(lx, S.gardener, set, frameAt(S.gardener, set, t), x, y, { team: TEAMS[team], flip });
+  // ground shadows the way the game does them
+  lx.fillStyle = 'rgba(20,40,10,.28)';
+  for (const [x, y] of [[80, 112], [140, 75], [205, 74], [262, 76], [60, 145], [100, 145], [150, 145], [205, 145]]) { lx.beginPath(); lx.ellipse(x, y, 6, 2, 0, 0, 7); lx.fill(); }
+  g('walk', 80, 112, 0); g('bonk', 140, 75, 1); g('charge', 205, 74, 2, true); g('water', 262, 76, 3);
+  g('spin', 60, 145, 4); g('dizzy', 100, 145, 5); g('sleep', 150, 145, 6); g('cheer', 205, 145, 7);
+  const p = (id, set, x, y, flip) => draw(lx, S[id], set, frameAt(S[id], set, t), x, y, { flip });
+  p('beetle', 'walk', 160, 74); p('beetle', 'munch', 120, 36); p('snail', 'walk', 286, 112, true); p('hopper', 'hop', 30, 130);
+  p('stag', 'walk', 225, 74, true); p('stinkbug', 'walk', 130, 128); p('ladybug', 'fly', 175, 128); p('weed', 'idle', 18, 116);
+  p('queen', 'walk', 270, 148, true); p('fx_poof', 'idle', 245, 132); p('fx_sparkle', 'idle', 242, 32); p('fx_star', 'idle', 100, 120);
+  p('fx_bee', 'fly', 90, 20); p('fx_stink', 'idle', 46, 98);
+  sx.imageSmoothingEnabled = false; sx.drawImage(low, 0, 0, SW * Z, SH * Z);
+}
+
+// ---------- the cards ----------
+const anims = [];
+const cards = document.getElementById('cards');
+const groups = { Garden: ['gardener', ...CROPS, 'plot', 'grass', 'tufts', 'flowers', 'stones', 'bush', 'shed', 'barrel'],
+  'Pests and friends': ['beetle', 'snail', 'hopper', 'stag', 'stinkbug', 'queen', 'ladybug', 'weed'],
+  Effects: Object.keys(S).filter(k => k.startsWith('fx_')) };
+for (const [title, ids] of Object.entries(groups)) {
+  const h = document.createElement('h2'); h.textContent = title; cards.appendChild(h);
+  const grid = document.createElement('div'); grid.className = 'grid'; cards.appendChild(grid);
+  for (const id of ids) {
+    const spec = S[id], first = frame(spec, Object.keys(spec.frames)[0], 0);
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<h3>${id} <small>${first.width}×${first.height}${String(spec.palette && Object.keys(spec.palette).length) ? ' · ' + Object.keys(spec.palette).length + ' colours' : ''}</small></h3><div class="sets"></div>`;
+    const sets = card.querySelector('.sets');
+    for (const set of Object.keys(spec.frames)) {
+      const n = frameList(spec, set).length, f0 = frame(spec, set, 0);
+      const wrap = document.createElement('div'); wrap.className = 'set';
+      const big = document.createElement('canvas'); big.width = f0.width * 6; big.height = f0.height * 6; big.className = 'chk';
+      const strip = document.createElement('canvas'); strip.width = (f0.width + 2) * n * 4; strip.height = f0.height * 4; strip.className = 'chk';
+      const st = strip.getContext('2d'); st.imageSmoothingEnabled = false;
+      for (let k = 0; k < n; k++) st.drawImage(frame(spec, set, k, id === 'gardener' ? TEAMS[1] : null), k * (f0.width + 2) * 4, 0, f0.width * 4, f0.height * 4);
+      wrap.append(`${set} · ${n}`, big, strip);
+      sets.appendChild(wrap);
+      anims.push({ spec, set, big, team: id === 'gardener' ? TEAMS[0] : null });
+    }
+    if (id === 'gardener') {
+      const wrap = document.createElement('div'); wrap.className = 'set';
+      const c = document.createElement('canvas'); c.width = 8 * 20 * 3; c.height = 26 * 3; c.className = 'chk';
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+      TEAMS.forEach((tm, k) => { const f = frame(spec, 'idle', 0, tm); x.drawImage(f, k * 60, 0, f.width * 3, f.height * 3); });
+      wrap.append('teams', c); sets.appendChild(wrap);
+    }
+    grid.appendChild(card);
+  }
+}
+function tick(now) {
+  const t = now / 1000;
+  scene(t);
+  for (const a of anims) {
+    const x = a.big.getContext('2d'), f = frame(a.spec, a.set, frameAt(a.spec, a.set, t), a.team);
+    x.imageSmoothingEnabled = false; x.clearRect(0, 0, a.big.width, a.big.height); x.drawImage(f, 0, 0, f.width * 6, f.height * 6);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

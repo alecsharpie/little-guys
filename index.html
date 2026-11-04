@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Little Guys</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<link rel="stylesheet" href="shared/theme.css">
+<style>
+  html, body { overflow: hidden; cursor: default; background: #2f5a2a; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  .over { position: fixed; inset: 0; display: grid; place-items: center; padding: 3vh 3vw; }
+  #results { background: rgba(24, 36, 16, .55); }
+  #lobby { place-items: stretch start; padding: 2.5vh; }
+  .panel { width: min(600px, 40vw); display: flex; flex-direction: column; gap: 1.8vh; padding: 3vh 2.4vw; background: var(--panel); border: 3px solid var(--line); border-radius: 22px; box-shadow: 0 8px 0 rgba(0,0,0,.25), 0 20px 60px rgba(0,0,0,.35); overflow: auto; }
+  .card { display: grid; grid-template-columns: auto 1fr; gap: 3vh 3vw; align-items: start; width: min(1200px, 100%); padding: 4vh 3vw; background: var(--panel); border: 3px solid var(--line); border-radius: 22px; box-shadow: 0 8px 0 rgba(0,0,0,.25), 0 20px 80px rgba(0,0,0,.45); }
+  .title { font-size: clamp(36px, 6.4vh, 76px); font-weight: 900; margin: 0; letter-spacing: -.01em; line-height: 1; }
+  .title span { color: var(--accent); }
+  .sub { color: var(--ink-2); font-size: clamp(15px, 2.1vh, 21px); }
+  .join { display: flex; gap: 1.6vw; align-items: center; }
+  .qr { background: #fff; padding: 8px; border-radius: 14px; width: min(20vh, 210px); aspect-ratio: 1; flex: none; }
+  .card .qr { width: min(26vh, 260px); }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .code { font-size: clamp(34px, 6.4vh, 72px); font-weight: 900; letter-spacing: .14em; color: var(--accent); line-height: 1; }
+  .url { color: var(--ink-2); font-size: clamp(12px, 1.6vh, 16px); word-break: break-all; margin-top: 6px; }
+  .warn { color: var(--bad); font-size: 15px; margin-top: 8px; }
+  .players { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; }
+  .pl { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--bg-2); border: 3px solid var(--c); font-size: clamp(15px, 2.1vh, 21px); font-weight: 800; }
+  .pl .blob { width: 18px; height: 18px; border-radius: 50%; background: var(--c); }
+  .pl.off { opacity: .45; }
+  .pl .ok { color: var(--good); }
+  .empty { color: var(--ink-2); font-size: 18px; align-self: center; }
+  .how { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .how div { padding: 10px 12px; border-radius: 14px; background: var(--bg-2); font-size: clamp(13px, 1.7vh, 17px); line-height: 1.3; }
+  .how b { display: block; font-size: 1.1em; margin-bottom: 2px; }
+  .prompt { font-size: clamp(17px, 2.5vh, 26px); font-weight: 800; }
+  .prompt .btn { margin-left: 10px; vertical-align: middle; }
+  .rank { width: 100%; border-collapse: collapse; font-size: clamp(16px, 2.3vh, 25px); margin: 1vh 0 2vh; }
+  .rank td { padding: 8px 10px; border-bottom: 2px solid var(--line); }
+  .rank td.n { width: 1%; white-space: nowrap; font-weight: 900; }
+  .rank td.s { text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .rank small { color: var(--ink-2); font-weight: 600; font-size: .7em; }
+  .rank .award { margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--bg-2); font-size: .8em; font-weight: 800; }
+  #banner { position: fixed; left: 0; right: 0; top: 34vh; text-align: center; pointer-events: none; font-size: clamp(44px, 11vh, 130px); font-weight: 900; color: #fff; text-shadow: 0 6px 0 rgba(30,40,10,.65), 0 0 40px rgba(0,0,0,.3); transition: opacity .25s; }
+  #banner small { display: block; font-size: .3em; font-weight: 800; color: var(--accent); margin-top: .3em; }
+  #hud { position: fixed; left: 1.6vh; top: 1.2vh; display: flex; align-items: center; gap: 16px; padding: 6px 16px 6px 10px; border-radius: 14px; background: rgba(30,40,14,.72); font-weight: 900; font-size: clamp(16px, 2.6vh, 28px); }
+  #hud .beds { display: flex; gap: 6px; }
+  #hud .bed { display: flex; gap: 1px; padding: 3px 5px; border-radius: 8px; background: rgba(0,0,0,.25); font-size: .55em; letter-spacing: -1px; }
+  #hud .bed.dead { opacity: .4; }
+  #corner { position: fixed; right: 1.6vh; top: 1.2vh; display: flex; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border-radius: 14px; background: rgba(30,40,14,.72); font-size: 15px; color: var(--ink-2); }
+  #corner .qr { width: 8vh; padding: 4px; border-radius: 8px; }
+  #corner b { display: block; color: var(--accent); font-size: 24px; letter-spacing: .1em; }
+  #sound { position: fixed; left: 50%; bottom: 2vh; transform: translateX(-50%); }
+  #status { position: fixed; left: 2vh; bottom: 2vh; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud" class="hidden"></div>
+<div id="banner"></div>
+<div id="corner" class="hidden"></div>
+<div id="lobby" class="over"></div>
+<div id="results" class="over hidden"></div>
+<button id="sound" class="btn sm">🔇 Click anywhere for sound</button>
+<div id="status" class="chip hidden"></div>
+<script type="module">
+import { hostRoom, param } from './shared/net.js';
+import { findLan, joinUrl, qrSvg, stuckOnLocalhost } from './shared/lobby.js';
+import { Sfx } from './shared/audio.js';
+import { SEATS, KINDS, INTRO, CROPS, newGame, ensure, startGame, startWave, step, input, breakOver, ranking, awards, isBossWave, context, PLOTS } from './game.js';
+import { drawField, tickFx, fx, burst, popup, ring, anim, drop, seatColor, team } from './draw.js';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const cv = $('cv'), ctx = cv.getContext('2d');
+const sfx = new Sfx();
+
+let G = newGame();
+let mode = 'lobby';          // lobby | countdown | play (then G.phase says wave / break / over)
+let countdown = 0, bannerUntil = 0, overAt = 0, clock = 0;
+const ready = new Set();
+const offSince = {};
+
+await findLan();
+const room = hostRoom({ game: 'littleguys', seats: SEATS, onSeats: () => { dirty = true; renderOverlays(); }, onAction, onStatus });
+const url = joinUrl(room.room);
+const qr = qrSvg(url);
+
+const live = s => room.connected(s);
+const nameOf = s => (room.seat(s)?.name || '').trim() || 'Player ' + s.slice(1);
+const present = () => SEATS.filter(s => room.seat(s) && live(s));
+
+function onStatus(s, e) {
+  const el = $('status');
+  el.classList.toggle('hidden', s === 'open');
+  el.innerHTML = s === 'retrying' ? `<span class="dot"></span> ${esc(e?.message || 'reconnecting to the game server')}…` : '<span class="dot"></span> connecting…';
+}
+
+// ---------- input from phones: {j:[x,y], b} is the stick and button; {r:1} is "ready" ----------
+function onAction(seat, body) {
+  if (!body || typeof body !== 'object') return;
+  ensure(G, seat, nameOf(seat));
+  if (body.r) {
+    if (mode === 'lobby' || (mode === 'play' && G.phase === 'over')) {
+      if (G.phase === 'over' && performance.now() - overAt < 2500) return; // let people see the results first
+      if (ready.has(seat)) ready.delete(seat); else { ready.add(seat); sfx.tick(); }
+      G.players[seat].cheer = ready.has(seat);
+      dirty = true; renderOverlays(); maybeStart();
+    }
+    return;
+  }
+  if (Array.isArray(body.j)) { input(G, seat, { x: body.j[0], y: body.j[1], b: body.b }); drainLog(); }
+}
+
+function maybeStart() {
+  const here = present();
+  if (here.length && here.every(s => ready.has(s))) beginCountdown();
+}
+function beginCountdown() {
+  if (!present().length) return;
+  mode = 'countdown'; countdown = 3.99; ready.clear(); dirty = true;
+  for (const p of Object.values(G.players)) p.cheer = false;
+  sfx.select(); renderOverlays();
+}
+
+// ---------- rules events → sound and sparkle ----------
+const GUTS = { beetle: ['#2f7a5a', '#8fd0a0', '#1c3a2a'], hopper: ['#8ac040', '#d8f080', '#4a7a20'], stag: ['#3a3050', '#9a8ac0', '#c0c0d8'],
+  stinkbug: ['#7a8a3a', '#c0c860'], snail: ['#d8a070', '#f0d0a0', '#8a5030'], queen: ['#6a3aa0', '#c08aff', '#ffd23f'], weed: ['#5fb83f', '#a6e05a', '#fff'], ladybug: ['#e03030', '#222'] };
+const POWER = {
+  rain: ['🌧️ RAIN!', 'every bed gets a drink', '#8ac4ff'], bees: ['🐝 BEES!', 'the bees sting the nearest pests', '#ffd23f'],
+  giant: ['🍄 GIANT!', 'gets huge for a while', '#ff9a3c'], bloom: ['🌻 BLOOM!', 'every living crop ripens: harvest!', '#ffe680'],
+};
+function drainLog() {
+  if (G.log.length) dirty = true;
+  for (const [k, ...a] of G.log.splice(0)) {
+    if (k === 'bonk') {
+      const [s, hits] = a, p = G.players[s];
+      if (!hits) sfx.swish();
+      // a little dust where the rake head lands (bonk frame 0 puts it ~6 px in front of the feet)
+      if (p) for (let n = 0; n < 4; n++) burst(p.x + Math.sign(p.fx || 1) * 0.2, p.y - 0.06, ['#d8c8a0', '#efe6d2'], 1, 25, 18);
+    } else if (k === 'hit') {
+      const [s, , x, y, how] = a, p = G.players[s];
+      sfx.bonk(p ? p.combo : 0); burst(x, y, ['#ffffff', '#fff3b0'], 5, 50, 30);
+      if (p && p.combo && p.combo % 10 === 0) { popup(p.x, p.y - 0.6, `${p.combo} combo! 🔥`, team(s).l, 1.1); sfx.rep(p.combo / 10 + 4); }
+    } else if (k === 'clink') {
+      const [, x, y] = a; sfx.clink(); burst(x, y, ['#ffffff', '#ffe680', '#c0c0d8'], 6, 80, 50); popup(x, y - 0.2, 'clink!', '#d8dcff', 0.8);
+    } else if (k === 'launch') {
+      sfx.boing();
+    } else if (k === 'kill') {
+      const [s, kind, x, y, pts, how] = a;
+      if (kind === 'queen') {
+        sfx.boom(); fx.shake = 30; fx.flash = 1; fx.flashColor = '#ffd23f';
+        burst(x, y, GUTS.queen, 50, 140, 90); anim('fx_poof', 'idle', x, y, { life: 0.5 });
+        banner('👑 THE QUEEN IS DOWN!<small>+300 each and every bed heals</small>', 3);
+      } else {
+        if (kind !== 'stinkbug') sfx.squish(); fx.shake = Math.max(fx.shake, 3);
+        anim('fx_poof', 'idle', x, y, { life: 0.38 });
+        burst(x, y, GUTS[kind] || '#fff', 12, 70, 45);
+        if (pts) popup(x, y - 0.2, '+' + pts, '#fff', 0.85);
+      }
+    } else if (k === 'stink') {
+      const [x, y] = a; sfx.stink(); fx.shake = Math.max(fx.shake, 8);
+      anim('fx_stink', 'idle', x, y + 0.3, { life: 0.9 }); ring(x, y, 1.4, '#c8d860', 0.35);
+    } else if (k === 'ouch') {
+      const [s, x, y] = a; sfx.ouch(); popup(x, y - 0.6, 'dizzy!', '#ffe14d', 0.8);
+    } else if (k === 'wake') {
+      const [s, o] = a, q = G.players[o]; sfx.wake(); if (q) popup(q.x, q.y - 0.6, `${nameOf(s)} woke ${nameOf(o)}!`, team(s).l, 0.75);
+    } else if (k === 'spin') {
+      const [s, r, full] = a, p = G.players[s]; sfx.spin(full); ring(p.x, p.y, r, full ? '#ffffff' : team(s).l, 0.3);
+    } else if (k === 'charged') {
+      sfx.charged();
+    } else if (k === 'water') {
+      const [s, i, hp] = a, pl = G.plots[i]; sfx.water(); popup(pl.x, pl.y - 0.9, hp === 1 ? 'saved! 💧' : '💧', '#8ac4ff', 0.8);
+    } else if (k === 'harvest') {
+      const [s, i] = a, pl = G.plots[i]; sfx.harvest();
+      burst(pl.x, pl.y, ['#ffd23f', '#ffffff', '#ff9a3c'], 22, 90, 80); popup(pl.x, pl.y - 0.6, `+150 ${CROP_EMOJI[pl.crop]}`, '#ffe680', 1.1);
+    } else if (k === 'bite') {
+      const [i, hp, x, y] = a, pl = G.plots[i]; sfx.munch(); burst(x, y, ['#5fb83f', '#a6e05a'], 4, 40, 30);
+    } else if (k === 'wilt') {
+      const [i] = a, pl = G.plots[i]; sfx.wilt(); fx.shake = 14; fx.flash = 0.6; fx.flashColor = '#ff3355';
+      popup(pl.x, pl.y - 0.4, `the ${pl.crop}s wilted!`, '#ff8a8a', 1);
+      if (G.plots.filter(p => p.hp > 0).length === 1) banner('⚠️ LAST BED!<small>hold the button in a wilted bed to water it back</small>', 2.5);
+    } else if (k === 'power') {
+      const [kind, s, x, y] = a, [t, sub, c] = POWER[kind];
+      sfx.chime(); sfx[kind === 'rain' ? 'rain' : kind === 'bees' ? 'buzz' : kind === 'giant' ? 'grow' : 'heal']();
+      fx.flash = 0.7; fx.flashColor = c; burst(x, y, ['#e03030', '#ffffff', '#222'], 16, 90, 70);
+      banner(`${t}<small>${esc(nameOf(s))} caught a ladybug: ${kind === 'giant' ? esc(nameOf(s)) + ' ' : ''}${sub}</small>`, 2.2);
+      if (kind === 'rain') for (const pl of G.plots) for (let n = 0; n < 8; n++) setTimeout(() => drop(pl.x + (Math.random() - 0.5) * 1.8, pl.y + (Math.random() - 0.5) * 1.2, 60), n * 60);
+      if (kind === 'bloom') for (const pl of G.plots) if (pl.hp > 0) burst(pl.x, pl.y, ['#ffe680', '#ffffff'], 10, 60, 60);
+    } else if (k === 'bee') {
+      const [x, y] = a; anim('fx_bee', 'fly', x, y - 0.3, { life: 0.6 }); burst(x, y, ['#ffd23f', '#222'], 6, 50, 40);
+    } else if (k === 'escape') {
+      const [x, y] = a; popup(Math.max(0.8, Math.min(15.2, x)), y, 'the ladybug flew off…', '#ffcf33', 0.7);
+    } else if (k === 'sprout') {
+      const [x, y] = a; anim('fx_poof', 'idle', x, y, { life: 0.3 });
+    } else if (k === 'wave') {
+      const [n, fresh] = a; sfx.horn();
+      const sub = isBossWave(n) ? '👑 the BEETLE QUEEN is coming' : fresh.length ? fresh.map(f => INTRO[f]).filter(Boolean).join('<br>') : 'protect the garden!';
+      banner(`Wave ${n}<small>${sub}</small>`, fresh.length ? 3.6 : 2.2);
+      baseBpm = 112 + Math.min(36, n * 3); sfx.bpm = baseBpm;
+    } else if (k === 'cleared') {
+      const [n, perfect] = a; sfx.cheer();
+      if (perfect) for (const pl of G.plots) burst(pl.x, pl.y, ['#ffd23f', '#ffffff'], 12, 80, 70);
+      banner(perfect ? `✨ PERFECT WAVE! ✨<small>not a nibble · +${100 * n} each</small>` : `Wave ${n} cleared!<small>water the thirsty beds · harvest the ripe ones</small>`, 3);
+    } else if (k === 'over') {
+      sfx.stopMusic(); sfx.hurt(); ready.clear(); overAt = performance.now(); renderOverlays();
+    }
+  }
+}
+const CROP_EMOJI = { carrot: '🥕', cabbage: '🥬', pumpkin: '🎃', tomato: '🍅', sunflower: '🌻', strawberry: '🍓' };
+let baseBpm = 116;
+
+function banner(html, secs) { $('banner').innerHTML = html; bannerUntil = performance.now() + secs * 1000; }
+
+// ---------- overlays ----------
+const HOW = `
+  <div class="how">
+    <div><b>🕹️ Stick to walk</b>Your phone is a controller. Left thumb walks your little gardener.</div>
+    <div><b>👆 Tap to bonk</b>Whack pests with your rake. Bonk ripe crops to harvest them.</div>
+    <div><b>✊ Hold to spin</b>Charge up, let go: a spinning sweep. The only thing that cracks a stag beetle.</div>
+    <div><b>💧 Hold in a bed to water</b>Bitten beds heal. Wilted beds come back. Lose every bed and it's over.</div>
+  </div>`;
+
+function playersHtml(showReady) {
+  const seats = SEATS.filter(s => room.seat(s));
+  if (!seats.length) return '<div class="empty">Waiting for gardeners…</div>';
+  return seats.map(s => `<div class="pl${live(s) ? '' : ' off'}" style="--c:${seatColor(s)}"><span class="blob"></span>${esc(nameOf(s))}${showReady && ready.has(s) ? ' <span class="ok">✓</span>' : ''}${live(s) ? '' : ' <small>reconnecting…</small>'}</div>`).join('');
+}
+
+function renderOverlays() {
+  const lobby = mode === 'lobby', over = mode === 'play' && G.phase === 'over';
+  $('lobby').classList.toggle('hidden', !lobby);
+  $('results').classList.toggle('hidden', !over);
+  $('corner').classList.toggle('hidden', lobby || over);
+  $('hud').classList.toggle('hidden', lobby || over);
+  const here = present(), waiting = here.filter(s => !ready.has(s)).length;
+  const prompt = here.length
+    ? (waiting ? `Tap <span style="color:var(--accent)">READY</span> on your phone (${here.length - waiting}/${here.length})` : 'Starting…')
+    : 'Scan the code to join: up to 8 gardeners';
+  if (lobby) {
+    const html = `<div class="panel">
+      <div><h1 class="title">Little <span>Guys</span></h1>
+      <div class="sub">Tend the garden. Bonk the bugs. Your phone is the controller.</div></div>
+      <div class="join"><div class="qr">${qr}</div><div><div class="code">${esc(room.room)}</div><div class="url">${esc(url)}</div>
+        ${stuckOnLocalhost(url) ? '<div class="warn">This page is on localhost, so phones cannot reach that link. Run <b>npm start</b> and open the address it prints.</div>' : ''}</div></div>
+      <div class="players">${playersHtml(true)}</div>
+      <div class="prompt">${prompt} ${here.length ? '<button class="btn sm go" data-act="start">Start now</button>' : ''}</div>
+      ${HOW}
+      <div class="sub" style="font-size:14px">Practise on the weeds while you wait →${self === top ? ' · <a href="dev.html" style="color:var(--ink-2)">dev mode</a> · <a href="sprites.html" style="color:var(--ink-2)">sprites</a>' : ''}</div>
+    </div>`;
+    if ($('lobby').innerHTML !== html) $('lobby').innerHTML = html;
+  }
+  if (over) {
+    const A = awards(G);
+    const rows = ranking(G).map(([s, p], i) => `<tr><td class="n">${['🥇', '🥈', '🥉'][i] || i + 1}</td>
+      <td><span style="color:${seatColor(s)};font-weight:900">${esc(nameOf(s))}</span> <span class="award">${A[s].icon} ${esc(A[s].title)}</span><br><small>${p.kills} pests · ${p.harvests} harvested · ${p.waters} watered · best combo ${p.best}</small></td>
+      <td class="s">${p.score.toLocaleString()}</td></tr>`).join('');
+    const html = `<div class="card">
+      <div class="qr">${qr}</div>
+      <div>
+        <h1 class="title">The garden fell on <span>wave ${G.wave}</span></h1>
+        <table class="rank">${rows}</table>
+        <div class="players">${playersHtml(true)}</div>
+        <div class="prompt">${prompt} <button class="btn sm go" data-act="start">Play again</button> <button class="btn sm" data-act="lobby">Lobby</button></div>
+      </div>
+    </div>`;
+    if ($('results').innerHTML !== html) $('results').innerHTML = html;
+  }
+  const corner = `<div class="qr">${qr}</div><div>Join in<b>${esc(room.room)}</b></div>`;
+  if ($('corner').innerHTML !== corner) $('corner').innerHTML = corner;
+}
+function renderHud() {
+  const beds = G.plots.map(pl => `<span class="bed${pl.hp ? '' : ' dead'}">${CROP_EMOJI[pl.crop]}${'❤️'.repeat(pl.hp)}${'🖤'.repeat(3 - pl.hp)}</span>`).join('');
+  const html = `<span>Wave ${G.wave}</span><span class="beds">${beds}</span>`;
+  if ($('hud').innerHTML !== html) $('hud').innerHTML = html;
+}
+
+document.addEventListener('click', e => {
+  sfx.init(); $('sound').classList.add('hidden');
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'start') beginCountdown();
+  if (act === 'lobby') toLobby();
+});
+function toLobby() { sfx.stopMusic(); const keep = G.players; G = newGame(); for (const [s, p] of Object.entries(keep)) { const q = ensure(G, s, p.name); q.x = p.x; q.y = p.y; } mode = 'lobby'; ready.clear(); dirty = true; renderOverlays(); }
+addEventListener('keydown', e => {
+  sfx.init(); $('sound').classList.add('hidden');
+  if (e.key === 'f' || e.key === 'F') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); }
+  else if (e.key === 'm' || e.key === 'M') sfx.setMuted(!sfx.muted);
+  else if (e.key === 'Escape') toLobby();
+  else if ((e.key === ' ' || e.key === 'Enter') && (mode === 'lobby' || G.phase === 'over')) beginCountdown();
+});
+
+// ---------- telling the phones how they are doing: one broadcast for everyone ----------
+let dirty = true, lastSent = 0, lastCtx = '';
+function snapshot() {
+  const phase = mode === 'play' ? G.phase : mode, over = mode === 'play' && G.phase === 'over', A = over ? awards(G) : {};
+  const p = {};
+  for (const s of SEATS) {
+    if (!room.seat(s)) continue;
+    const q = G.players[s], award = over && A[s] ? [A[s].icon, A[s].title, A[s].why] : null;
+    p[s] = q ? [q.score, q.combo, q.ev, q.last, ready.has(s) ? 1 : 0, nameOf(s), q.stun > 0 ? 1 : 0, award, context(G, q), q.giantT > 0 ? 1 : 0]
+             : [0, 0, 0, '', ready.has(s) ? 1 : 0, nameOf(s), 0, null, 0, 0];
+  }
+  return { t: 's', ph: phase, w: G.wave, beds: G.plots.map(pl => pl.hp), cd: Math.ceil(mode === 'countdown' ? countdown : G.phase === 'break' ? G.timer : 0),
+    n: present().length, p, rank: over ? ranking(G).map(([s]) => s) : null, tev: G.tev, tl: G.tlast };
+}
+function sync(now) {
+  // the button label depends on where you stand, so a change of context is worth a message too
+  const ctxKey = Object.values(G.players).map(q => context(G, q) + (q.stun > 0 ? 'd' : '')).join('');
+  if (ctxKey !== lastCtx) { lastCtx = ctxKey; dirty = true; }
+  if ((dirty && now - lastSent > 80) || now - lastSent > 400) { room.all(snapshot()); lastSent = now; dirty = false; }
+}
+
+// ---------- the loop ----------
+function resize() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+}
+addEventListener('resize', resize); resize();
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
+
+  for (const s of SEATS) {
+    if (room.seat(s) && !live(s)) { offSince[s] ??= now; if ((mode === 'lobby' || G.phase === 'over') && now - offSince[s] > 15000) { room.free(s); ready.delete(s); delete offSince[s]; delete G.players[s]; renderOverlays(); } }
+    else delete offSince[s];
+    if (room.seat(s)) ensure(G, s, nameOf(s));
+  }
+
+  if (mode === 'lobby') {
+    step(G, dt, live);
+  } else if (mode === 'countdown') {
+    const before = Math.ceil(countdown);
+    countdown -= dt; step(G, dt, live);
+    if (Math.ceil(countdown) !== before) { dirty = true; if (countdown > 0) sfx.beep(false); }
+    banner(countdown > 0 ? String(Math.ceil(countdown)) : 'GO!', 0.6);
+    if (countdown <= 0) {
+      if (!present().length) toLobby();
+      else { startGame(G, present()); for (const s of present()) G.players[s].name = nameOf(s); mode = 'play'; sfx.beep(true); sfx.startMusic(116); dirty = true; renderOverlays(); }
+    }
+  } else if (mode === 'play') {
+    const before = G.phase;
+    step(G, dt, live);
+    if (breakOver(G)) startWave(G);
+    if (G.phase !== before) { dirty = true; renderOverlays(); }
+  }
+  drainLog();
+  tickFx(dt);
+  // a watering can pours while you hold it over a bed
+  for (const p of Object.values(G.players)) if (p.holding && p.mode === 'water' && p.holdT > 0.16 && Math.random() < dt * 14) drop(p.x + Math.sign(p.fx || 1) * 0.27, p.y - 0.05, 5);
+  drawField(ctx, G, { W: cv.width, H: cv.height, live, name: nameOf, t: clock });
+  if (mode !== 'lobby') renderHud();
+  $('banner').style.opacity = now < bannerUntil ? 1 : 0;
+  sync(now);
+  requestAnimationFrame(frame);
+}
+if (param('debug') != null) window.lg = { get G() { return G; }, get mode() { return mode; }, context };
+renderOverlays();
+requestAnimationFrame(frame);
+setInterval(renderOverlays, 1000);
+</script>
+</body>
+</html>
