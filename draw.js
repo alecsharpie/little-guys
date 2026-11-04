@@ -71,7 +71,7 @@ function buildLawn() {
 }
 
 // ---------- effects ----------
-export const fx = { parts: [], pops: [], rings: [], anims: [], drops: [], shake: 0, flash: 0, flashColor: '#fff', trail: {} };
+export const fx = { parts: [], pops: [], rings: [], anims: [], drops: [], decals: [], flyers: [], shake: 0, flash: 0, flashColor: '#fff', combo: {} };
 const L = v => v * U;   // world → low-res px
 
 export function burst(wx, wy, colors, n = 14, speed = 70, up = 40) {
@@ -81,12 +81,27 @@ export function burst(wx, wy, colors, n = 14, speed = 70, up = 40) {
       life: 0.4 + Math.random() * 0.4, c: Array.isArray(colors) ? colors[i % colors.length] : colors, s: Math.random() < 0.3 ? 2 : 1 });
   }
 }
-export function popup(wx, wy, text, color = '#fff', size = 1) { fx.pops.push({ x: L(wx), y: L(wy), text, color, size, t: 0, life: 1.1 }); }
+// key: a popup with the same key replaces the last one (a DOUBLE! becomes a TRIPLE! instead of stacking)
+export function popup(wx, wy, text, color = '#fff', size = 1, key = null) { if (key) fx.pops = fx.pops.filter(p => p.key !== key); fx.pops.push({ x: L(wx), y: L(wy), text, color, size, t: 0, life: 1.1, key }); }
 export function ring(wx, wy, r, color, life = 0.3) { fx.rings.push({ x: L(wx), y: L(wy), r: L(r), color, t: 0, life }); }
 export function anim(id, set, wx, wy, { life, flip = false, dy = 0 } = {}) {
   const spec = S[id]; if (!spec) return;
   fx.anims.push({ spec, set, x: L(wx), y: L(wy) + dy, t: 0, life: life ?? count(spec, set) / 12, flip });
 }
+// a squashed bug leaves a little stain on the ground that fades away
+export function splat(wx, wy, colors, size = 1) {
+  const px = [], n = Math.round(9 * size), cs = Array.isArray(colors) ? colors : [colors];
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * 3.2 * size;
+    px.push([Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * 0.6), cs[i % cs.length]]);
+  }
+  for (let i = 0; i < 3 + size * 2; i++) { const a = Math.random() * Math.PI * 2, r = (4 + Math.random() * 3) * size; px.push([Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r * 0.6), cs[0]]); }
+  fx.decals.push({ x: Math.round(L(wx)), y: Math.round(L(wy)), px, t: 0 });
+  if (fx.decals.length > 90) fx.decals.shift();
+}
+// a harvested vegetable hops out of its bed and lands at the gardener's feet
+export function flyer(spec, set, i, wx0, wy0, wx1, wy1, onLand) { fx.flyers.push({ spec, set, i, x0: L(wx0), y0: L(wy0), x1: L(wx1), y1: L(wy1), t: 0, life: 0.55, onLand }); }
+export function bumpCombo(seat) { fx.combo[seat] = 0.18; }
 export function drop(wx, wy, h = 14) { fx.drops.push({ x: L(wx) + (Math.random() - 0.5) * 6, y: L(wy), z: h, vz: 0, t: 0 }); }
 
 export function tickFx(dt) {
@@ -100,6 +115,11 @@ export function tickFx(dt) {
   fx.anims = fx.anims.filter(a => a.t < a.life);
   for (const d of fx.drops) { d.t += dt; d.vz -= 300 * dt; d.z += d.vz * dt; if (d.z <= 0 && !d.splash) { d.splash = d.t; } }
   fx.drops = fx.drops.filter(d => !d.splash || d.t - d.splash < 0.25);
+  for (const d of fx.decals) d.t += dt;
+  fx.decals = fx.decals.filter(d => d.t < 9);
+  for (const f of fx.flyers) { f.t += dt; if (f.t >= f.life && f.onLand) { f.onLand(); f.onLand = null; } }
+  fx.flyers = fx.flyers.filter(f => f.t < f.life);
+  for (const k in fx.combo) fx.combo[k] = Math.max(0, fx.combo[k] - dt);
   fx.shake = Math.max(0, fx.shake - dt * 30);
   fx.flash = Math.max(0, fx.flash - dt * 2.5);
 }
@@ -196,6 +216,7 @@ function drawEnemy(x, e, t) {
   if (e.kind === 'hopper' && set === 'hop' && e.hopT < 0.35) py -= Math.round(Math.sin(e.hopT / 0.35 * Math.PI) * 6);
   if (e.kind === 'ladybug') py -= 6 + Math.round(Math.sin(e.t * 6) * 2);
   if (e.fly > 0) py -= Math.round(Math.sin(e.fly / 0.75 * Math.PI) * 12);
+  if (e.dead) { spr(x, spec, set, i, px, py, { flip: e.face < 0, mode: 'flash', alpha: Math.min(1, e.ghost * 4) }); return; }
   spr(x, spec, set, i, px, py, { flip: e.face < 0, mode: e.hurt > 0.06 ? 'flash' : '' });
   if (e.max > 1 && e.hp < e.max) {
     const w = e.kind === 'queen' ? 30 : 12, bx = Math.round(px - w / 2), by = Math.round(py - (e.kind === 'queen' ? 32 : 16));
@@ -228,6 +249,11 @@ export function drawField(ctx, G, { W: SW, H: SH, live, name, t }) {
   x.imageSmoothingEnabled = false;
   x.clearRect(0, 0, LW, LH);
   x.drawImage(lawn, 0, 0);
+  for (const d of fx.decals) {
+    x.globalAlpha = d.t < 5 ? 0.85 : 0.85 * (1 - (d.t - 5) / 4);
+    for (const [dx, dy, c] of d.px) { x.fillStyle = c; x.fillRect(d.x + dx, d.y + dy, 1, 1); }
+  }
+  x.globalAlpha = 1;
 
   const items = [];
   for (const pl of G.plots) drawPlot(x, pl, t, items);
@@ -235,6 +261,7 @@ export function drawField(ctx, G, { W: SW, H: SH, live, name, t }) {
   // shadows first, so nothing's shadow falls on a neighbour's head
   for (const p of Object.values(G.players)) shadow(x, p.x, p.y, p.giantT > 0 ? 12 : 6, p.giantT > 0 ? 4 : 2);
   for (const e of G.enemies) {
+    if (e.dead) continue;
     const air = e.kind === 'ladybug' || e.fly > 0;
     shadow(x, e.x, e.y, Math.round(L(e.r) * (air ? 0.6 : 1.1)), Math.round(L(e.r) * 0.45));
   }
@@ -244,6 +271,10 @@ export function drawField(ctx, G, { W: SW, H: SH, live, name, t }) {
   items.sort((a, b) => a.y - b.y);
   for (const it of items) it.draw();
 
+  for (const f of fx.flyers) {
+    const k = Math.min(1, f.t / f.life), e = 1 - (1 - k) * (1 - k);
+    spr(x, f.spec, f.set, f.i, f.x0 + (f.x1 - f.x0) * e, f.y0 + (f.y1 - f.y0) * e - Math.sin(k * Math.PI) * 22);
+  }
   for (const p of fx.parts) { x.fillStyle = p.c; x.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s, p.s); }
   for (const d of fx.drops) {
     if (d.splash) spr(x, S.fx_drop, 'splash', Math.floor((d.t - d.splash) / 0.25 * 3), d.x, d.y);
@@ -272,6 +303,17 @@ export function drawField(ctx, G, { W: SW, H: SH, live, name, t }) {
     const label = name(s) + (p.on ? '' : ' 💤');
     ctx.lineWidth = Math.max(2, Z * 1.2); ctx.strokeStyle = 'rgba(20,30,10,.85)'; ctx.strokeText(label, nx, ny);
     ctx.fillStyle = team(s).l; ctx.fillText(label, nx, ny);
+  }
+  // combo over the head: bigger and hotter as it climbs, with a pop each time it goes up
+  for (const [s, p] of Object.entries(G.players)) {
+    if (p.combo < 3) continue;
+    const heat = Math.min(1, p.combo / 30), bump = (fx.combo[s] || 0) / 0.18;
+    const size = Math.round((6 + heat * 4) * Z * (1 + bump * 0.45));
+    ctx.font = `900 ${size}px ui-rounded, system-ui, sans-serif`;
+    const cx = X(L(p.x)), cy = Y(L(p.y) - (p.giantT > 0 ? 56 : 32)) - size;
+    const label = `×${p.combo}${p.combo >= 10 ? ' 🔥' : ''}`;
+    ctx.lineWidth = Math.max(3, Z * 1.5); ctx.strokeStyle = 'rgba(40,20,10,.9)'; ctx.strokeText(label, cx, cy);
+    ctx.fillStyle = `hsl(${50 - heat * 45}, 100%, ${70 - heat * 12}%)`; ctx.fillText(label, cx, cy);
   }
   for (const p of fx.pops) {
     const k = p.t / p.life, a = k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25;

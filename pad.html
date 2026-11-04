@@ -11,6 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <title>Little Guys · Controller</title>
+<link rel="icon" href="icon.png">
 <link rel="stylesheet" href="shared/theme.css">
 <style>
   html, body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -43,6 +44,8 @@
   #btn .lbl { font-weight: 900; font-size: clamp(20px, 6vh, 34px); line-height: 1; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
   #btn .lbl small { display: block; font-size: .45em; font-weight: 800; margin-top: 4px; opacity: .9; }
   #btn.full .face { animation: glow .25s infinite alternate; }
+  #btn.hit .face { animation: hit .16s ease-out; }
+  @keyframes hit { from { filter: brightness(1.8); transform: scale(1.06); } to { filter: none; transform: none; } }
   @keyframes glow { from { filter: brightness(1); } to { filter: brightness(1.35); } }
   #msg { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); pointer-events: none; text-align: center; font-weight: 900; font-size: 20px; padding: 6px 14px; border-radius: 14px; background: rgba(20,30,10,.75); white-space: nowrap; max-width: 96%; overflow: hidden; text-overflow: ellipsis; }
   #msg:empty { display: none; }
@@ -210,7 +213,7 @@ requestAnimationFrame(guy);
 // ---------- buzz and shout for what happened on the TV ----------
 const TEAM = { rain: ['🌧️ RAIN!', [30, 30, 30, 30, 30]], bees: ['🐝 BEES!', [80, 30, 80]], giant: ['🍄 GIANT!', [100, 50, 100]], bloom: ['🌻 BLOOM!', [30, 30, 120]],
   perfect: ['✨ PERFECT!', [30, 30, 30, 30, 120]], queen: ['👑 QUEEN DOWN!', [100, 50, 300]] };
-const BUZZ = { hit: 14, kill: [20, 30, 25], clink: [8, 20, 8], ouch: 220, gift: [30, 30, 30, 30, 120], harvest: [20, 40, 60], water: 25, wake: [20, 20, 40], woke: [60, 40, 60], charged: 35, spin: [40, 30, 80], launch: 18 };
+const BUZZ = { multi: [30, 20, 30, 20, 80], hit: 14, kill: [20, 30, 25], clink: [8, 20, 8], ouch: 220, gift: [30, 30, 30, 30, 120], harvest: [20, 40, 60], water: 25, wake: [20, 20, 40], woke: [60, 40, 60], charged: 35, spin: [40, 30, 80], launch: 18 };
 function shout(text, color = '#fff') {
   const el = $('shout'); el.textContent = text; el.style.color = color;
   el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
@@ -220,6 +223,8 @@ function feel() {
   if (!b) return;
   if (a && b[2] !== a[2]) {
     buzz(BUZZ[b[3]] || 10);
+    if (['hit', 'kill', 'multi', 'harvest', 'gift'].includes(b[3])) { const k = $('btn'); k.classList.remove('hit'); void k.offsetWidth; k.classList.add('hit'); }
+    if (b[3] === 'multi') shout(b[10] >= 6 ? '⚡ MEGA SWEEP!' : ['', '', 'DOUBLE!', 'TRIPLE!', 'QUAD!', 'PENTA!'][b[10]] || 'MULTI!', b[10] >= 4 ? '#ff9a3c' : '#ffe14d');
     if (b[3] === 'ouch') { const c = $('ctl'); c.classList.remove('ouch'); void c.offsetWidth; c.classList.add('ouch'); }
     if (b[3] === 'harvest') shout('🥕 +150', 'var(--accent)');
     if (b[3] === 'woke') shout('😳 WOKEN UP!');

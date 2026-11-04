@@ -20,7 +20,7 @@ test('a bonk hits the beetle in front, not the one behind', () => {
   const G = game(), p = G.players.p1; place(p, 2, 2);
   const front = pest(G, 'beetle', 2.6, 2), back = pest(G, 'beetle', 1.3, 2);
   tap(G, 'p1');
-  step(G, 1 / 30);
+  run(G, 0.5);
   assert.ok(!G.enemies.includes(front), 'front beetle squashed');
   assert.ok(G.enemies.includes(back));
   assert.equal(p.kills, 1); assert.ok(p.score > 0);
@@ -36,7 +36,7 @@ test('stag beetles shrug off bonks; a charged spin gets them', () => {
   input(G, 'p1', { b: 1 }); run(G, HOLD_DELAY + CHARGE_TIME + 0.05);
   assert.equal(p.charge, 1);
   place(p, 2, 2); stag.x = 2.6; stag.y = 2; stag.kx = stag.ky = 0;
-  input(G, 'p1', { b: 0 }); run(G, 0.1);
+  input(G, 'p1', { b: 0 }); run(G, 0.5);
   assert.ok(!G.enemies.includes(stag), 'swept away');
   assert.equal(p.spinKills, 1);
 });
@@ -107,4 +107,34 @@ test('the stick moves the gardener, at most at full speed', () => {
   run(G, 1);
   assert.ok(p.x > 5.5 && p.x < 6.6, `x=${p.x}`);
   assert.equal(PLOTS.length, 6);
+});
+
+test('a bonked beetle bowls over the beetles behind it, and the kills count as a multi-kill', () => {
+  const G = game(), p = G.players.p1; place(p, 2, 4);
+  const a = pest(G, 'beetle', 2.55, 4); a.hp = 2;                   // a tough one: survives the bonk and goes flying
+  const b = pest(G, 'beetle', 3.15, 4), c = pest(G, 'beetle', 3.6, 4.05);
+  tap(G, 'p1');
+  run(G, 0.6);
+  assert.ok(!G.enemies.includes(b), 'first in line bowled over');
+  assert.ok(p.bowled >= 1);
+  assert.ok(G.log.some(l => l[0] === 'bowl'));
+});
+
+test('kills close together are a multi-kill, with a bonus', () => {
+  const G = game(), p = G.players.p1; place(p, 2, 4);
+  pest(G, 'beetle', 2.5, 3.9); pest(G, 'beetle', 2.5, 4.1); pest(G, 'beetle', 2.6, 4);
+  const before = p.score;
+  tap(G, 'p1');
+  assert.equal(p.kills, 3); assert.equal(p.bestMulti, 3);
+  assert.ok(p.score - before > 3 * 50 + 50 * 2 + 50 * 3 - 1, 'multi bonus paid');
+  assert.ok(G.log.some(l => l[0] === 'multi' && l[2] === 3));
+});
+
+test('a squashed beetle skids on and bowls over the one behind it', () => {
+  const G = game(), p = G.players.p1; place(p, 2, 4);
+  pest(G, 'beetle', 2.5, 4); const b = pest(G, 'beetle', 3.3, 4);
+  tap(G, 'p1');
+  run(G, 0.5);
+  assert.ok(!G.enemies.includes(b), 'bowled'); assert.equal(p.bowled, 1); assert.equal(p.kills, 2);
+  assert.ok(G.enemies.every(e => !e.dead), 'skidding bodies are cleaned up');
 });

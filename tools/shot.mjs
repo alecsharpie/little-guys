@@ -30,7 +30,8 @@ const browser = await pw.chromium.launch();
 const tab = await browser.newPage({ viewport: { width: W, height: H } });
 const errors = [];
 tab.on('pageerror', e => errors.push(String(e)));
-tab.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+tab.on('console', m => { if (m.type() === 'error' && !/status of 404/.test(m.text())) errors.push(m.text()); });
+tab.on('response', r => { if (r.status() >= 400) errors.push(r.status() + ' ' + r.url()); });
 await tab.goto(/^https?:/.test(page) ? page : `http://localhost:${port}/${page}`);
 await tab.waitForTimeout(wait);
 if (opt('eval')) { await tab.evaluate(opt('eval')); await tab.waitForTimeout(+opt('after', 600)); }

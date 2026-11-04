@@ -19,6 +19,7 @@ export const SPEED = 3.4, ACCEL = 16, R = 0.26;
 export const BONK_RANGE = 0.82, BONK_COS = 0.3, BONK_CD = 0.24, BONK_KNOCK = 4.6;
 export const HOLD_DELAY = 0.16, CHARGE_TIME = 0.7, MIN_CHARGE = 0.3, CHARGE_SLOW = 0.4;
 export const SPIN_TIME = 0.32, WATER_EVERY = 0.85;
+export const MULTI_WINDOW = 0.7, BOWL_SPEED = 2.4;
 export const DIZZY = 0.8, INVULN = 1.3, GIANT = 8, COMBO_TIME = 2.6;
 
 // speed in units per second at wave 1; bite: seconds per point of bed health it eats
@@ -53,7 +54,7 @@ export function newPlayer(name = '', x = 8, y = 4.7) {
     cd: 0, bonkT: 0, holding: false, holdT: 0, charge: 0, mode: '', spinT: 0, spinR: 0, spinDmg: 0, spinHit: null, waterT: 0,
     stun: 0, inv: 0, giantT: 0, moving: 0,
     score: 0, combo: 0, comboT: 0, best: 0, kills: 0, hits: 0, spinKills: 0, boomKills: 0, waters: 0, harvests: 0,
-    wakes: 0, gifts: 0, ouches: 0, dist: 0, bonks: 0, ev: 0, last: '' };
+    wakes: 0, gifts: 0, ouches: 0, dist: 0, bonks: 0, bowled: 0, multi: 0, multiT: 0, bestMulti: 0, ev: 0, last: '' };
 }
 
 function newPlots(r) {
@@ -141,7 +142,7 @@ function spawn(G, kind, x, y) {
   const k = KINDS[kind], P = nPlayers(G);
   const hp = kind === 'queen' ? 10 + 4 * P + 2 * Math.floor(G.wave / BOSS_EVERY) : k.hp;
   const e = { id: G.next++, kind, x, y, kx: 0, ky: 0, hp, max: hp, r: k.r, hurt: 0, fly: 0, owner: null, munch: 0, eating: -1,
-    hopT: G.r(), face: x < W / 2 ? 1 : -1, life: kind === 'ladybug' ? 13 : 0, leaving: false, tx: x, ty: y, t: G.r() * 10 };
+    hopT: G.r(), face: x < W / 2 ? 1 : -1, by: null, flingT: 0, bowledIds: null, life: kind === 'ladybug' ? 13 : 0, leaving: false, tx: x, ty: y, t: G.r() * 10 };
   G.enemies.push(e);
   return e;
 }
@@ -235,6 +236,8 @@ function hitEnemy(G, s, e, dmg, nx, ny, knock, how) {
   }
   const heavy = k.heavy || 1;
   e.hp -= dmg; e.hurt = 0.15; e.kx += nx * knock * heavy; e.ky += ny * knock * heavy; e.eating = -1;
+  // knocked hard enough, it goes flying, and bowls over whatever it hits (see stepEnemies)
+  e.by = s; if (knock * heavy >= 3.5) { e.flingT = 0.4; e.bowledIds = new Set(); }
   if (p) { p.hits++; addCombo(p); p.score += Math.round(10 * mult(p)); evt(p, 'hit'); }
   G.log.push(['hit', s, e.id, e.x, e.y, how]);
   if (e.kind === 'queen' && e.hp > 0 && G.r() < 0.4) { const b = spawn(G, 'beetle', e.x, e.y); b.kx = -nx * 3 + (G.r() - 0.5) * 4; b.ky = -ny * 3 + (G.r() - 0.5) * 4; }
@@ -253,10 +256,19 @@ function kill(G, e, s, how) {
     p.score += pts; p.kills++;
     if (how === 'spin') p.spinKills++;
     if (how === 'stink') p.boomKills++;
+    if (how === 'bowl') p.bowled++;
+    p.multi = p.multiT > 0 ? p.multi + 1 : 1; p.multiT = MULTI_WINDOW;
+    p.bestMulti = Math.max(p.bestMulti, p.multi);
     evt(p, 'kill');
+    if (p.multi >= 2 && G.phase !== 'lobby') {
+      const bonus = 50 * p.multi; p.score += bonus;
+      evt(p, 'multi'); G.log.push(['multi', s, p.multi, e.x, e.y, bonus]);
+    }
   }
   G.log.push(['kill', s, e.kind, e.x, e.y, pts, how]);
   if (k.stink) stink(G, e.x, e.y, s);
+  // knocked to death, it keeps skidding for a moment and can still bowl into others
+  else if (e.flingT > 0 && (how === 'bonk' || how === 'spin' || how === 'bowl') && e.kind !== 'queen') e.ghost = 0.32;
   if (e.kind === 'queen') {
     for (const q of Object.values(G.players)) q.score += 300;
     for (const pl of G.plots) pl.hp = Math.min(3, pl.hp + 1);
@@ -324,11 +336,12 @@ export function step(G, dt, live = () => true) {
     pl.munchers = 0;
   }
   stepEnemies(G, dt);
-  G.enemies = G.enemies.filter(e => !e.dead && !e.gone);
+  G.enemies = G.enemies.filter(e => (!e.dead || e.ghost > 0) && !e.gone);
 
-  if (G.phase === 'wave' && !G.queue.length && !G.enemies.some(e => HOSTILE(e.kind))) {
-    const perfect = G.waveLost === 0;
-    if (perfect) for (const p of Object.values(G.players)) if (p.on) p.score += 100 * G.wave;
+  if (G.phase === 'wave' && !G.queue.length && !G.enemies.some(e => !e.dead && HOSTILE(e.kind))) {
+    const perfect = G.waveLost === 0, hearts = G.plots.reduce((a, pl) => a + pl.hp, 0), bonus = hearts * 10;
+    for (const p of Object.values(G.players)) if (p.on) p.score += bonus + (perfect ? 100 * G.wave : 0);
+    G.log.push(['tally', hearts, bonus]);
     for (const e of G.enemies) e.leaving = true;
     G.phase = 'break'; G.timer = BREAK;
     G.log.push(['cleared', G.wave, perfect]);
@@ -338,7 +351,7 @@ export function step(G, dt, live = () => true) {
 
 function stepPlayer(G, s, p, dt) {
   p.cd = Math.max(0, p.cd - dt); p.bonkT = Math.max(0, p.bonkT - dt); p.inv = Math.max(0, p.inv - dt);
-  p.giantT = Math.max(0, p.giantT - dt);
+  p.giantT = Math.max(0, p.giantT - dt); p.multiT = Math.max(0, p.multiT - dt);
   if (p.combo && (p.comboT -= dt) <= 0) p.combo = 0;
   const ix = p.on ? p.ix : 0, iy = p.on ? p.iy : 0;
   if (!p.on) { p.holding = false; p.charge = 0; }
@@ -405,7 +418,10 @@ function target(G, e) {
 function stepEnemies(G, dt) {
   const slow = 1, sc = speedScale(G.wave);
   for (const e of G.enemies) {
-    if (e.dead) continue;
+    if (e.dead) {
+      if (e.ghost > 0) { e.ghost -= dt; e.x += e.kx * dt; e.y += e.ky * dt; const f = Math.exp(-4 * dt); e.kx *= f; e.ky *= f; }
+      continue;
+    }
     const k = KINDS[e.kind];
     e.t += dt; e.hurt = Math.max(0, e.hurt - dt);
     if (e.fly > 0) {
@@ -459,6 +475,21 @@ function stepEnemies(G, dt) {
     const f = Math.exp(-7 * dt); e.kx *= f; e.ky *= f;
     if (Math.abs(vx + e.kx) > 0.05) e.face = vx + e.kx > 0 ? 1 : -1;
   }
+  // bowling: a pest knocked flying knocks down the pests it hits, which fly on and knock down more
+  for (const e of G.enemies) {
+    if ((e.dead && !(e.ghost > 0)) || !(e.flingT > 0)) continue;
+    e.flingT -= dt; e.bowledIds ??= new Set();
+    const sp = Math.hypot(e.kx, e.ky); if (sp < BOWL_SPEED) continue;
+    for (const o of G.enemies) {
+      if (o === e || o.dead || o.fly > 0 || !HOSTILE(o.kind) || e.bowledIds.has(o.id)) continue;
+      const dx = o.x - e.x, dy = o.y - e.y, d = Math.hypot(dx, dy) || 1e-6;
+      if (d > o.r + e.r + 0.04) continue;
+      e.bowledIds.add(o.id);
+      G.log.push(['bowl', e.by, o.x, o.y]);
+      hitEnemy(G, e.by, o, 1, (dx / d + e.kx / sp) / 2, (dy / d + e.ky / sp) / 2, sp * 0.95, 'bowl');
+      e.kx *= 0.7; e.ky *= 0.7;
+    }
+  }
   // pests jostle for room, and push (and some pinch) gardeners
   const es = G.enemies.filter(e => !e.dead && e.fly <= 0);
   for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) {
@@ -500,6 +531,8 @@ const AWARDS = [
   ['💧', 'Water Wizard', p => p.waters, p => `${p.waters} beds watered`],
   ['🔥', 'Combo Champ', p => p.best, p => `best combo ${p.best}`],
   ['🌀', 'Spin Doctor', p => p.spinKills, p => `${p.spinKills} pests swept away`],
+  ['🎳', 'Bug Bowler', p => p.bowled, p => `${p.bowled} pests bowled over`],
+  ['⚡', 'Multi Masher', p => p.bestMulti >= 3 ? p.bestMulti : 0, p => `a ${p.bestMulti}-pest multi-kill`],
   ['💨', 'Stink Bomber', p => p.boomKills, p => `${p.boomKills} pests gassed`],
   ['🤝', 'Good Friend', p => p.wakes, p => `bonked ${p.wakes} friend${p.wakes === 1 ? '' : 's'} awake`],
   ['🐞', 'Ladybug Lover', p => p.gifts, p => `${p.gifts} ladybug${p.gifts === 1 ? '' : 's'} caught`],
