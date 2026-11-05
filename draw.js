@@ -169,7 +169,6 @@ function gardenerSet(G, p, t) {
   if (p.hurtT > 0 && has(spec, 'hurt')) return ['hurt', once(spec, 'hurt', 1 - p.hurtT / 0.2)];
   if (p.stun > 0) return ['dizzy', null];
   if (p.spinT > 0) return ['spin', null];
-  if (p.holding && p.holdT > HOLD_DELAY && p.mode === 'water') return ['water', null];
   if (p.holding && p.holdT > HOLD_DELAY && p.mode === 'charge') {
     // a 4-frame charge: frames 0-1 wind up once, then 2-3 tremble on a loop
     const n = count(spec, 'charge'), e = p.holdT - HOLD_DELAY;
@@ -177,6 +176,7 @@ function gardenerSet(G, p, t) {
     return ['charge', null];
   }
   if (p.bonkT > 0) return ['bonk', once(spec, 'bonk', 1 - p.bonkT / BONK_ANIM)];
+  if (p.watering && p.waterT > 0.12) return ['water', null];
   if (p.pluckT > 0 && has(spec, 'pluck')) return ['pluck', once(spec, 'pluck', 1 - p.pluckT / 0.3)];
   if (p.moving > 0.4) return ['walk', null];
   if (G.phase === 'break' || p.cheer) return ['cheer', null];

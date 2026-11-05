@@ -19,10 +19,10 @@ controller instead of swipes, and pixel art made the way `~/me/aoe`'s sprite-lab
 | 👆 Tap | Bonk with your rake. Bonk a ripe crop to harvest it (+150). Bonk a dizzy friend to wake them up. |
 | ✊ Hold, release | Charge a spinning rake sweep (the ring round the button fills; full = bigger and harder). The only way through a stag beetle's armour. |
 | 🎳 Bowling | A pest you knock flying (even a squashed one) skids into the pests behind it and bowls them over. Line them up! Kills close together are DOUBLE / TRIPLE / QUAD / PENTA / MEGA SWEEP, with bonus points. |
-| 💧 Hold in a bed | Standing in a bed that has been bitten, holding waters it instead: one heart per second or so. Wilted beds can be watered back to life. |
+| 💧 Stand in a bed | Stand still in a bed that has been bitten and your gardener waters it: one heart per second or so. No button, so you can still bonk and charge spins there (swinging or charging puts the can down). Wilted beds can be watered back to life. |
 
 Each bed has three hearts. Pests head for the nearest living bed and munch it. When every bed has wilted, the game is over. Every cleared wave pays a garden bonus for each heart still standing.
-The phone's button tells you what it will do where you are standing (BONK / 💧 HOLD / 🥕 TAP).
+The phone's button tells you what it will do where you are standing (BONK, or PICK on a ripe bed).
 
 Pests: 🪲 beetles (wave 1) · 🦗 grasshoppers, quick and hoppy (2) · stag beetles, armoured and they pinch (3) ·
 💨 stinkbugs: a bonk sends them flying, and they burst in a stink cloud that hurts pests and dizzies gardeners (4) ·

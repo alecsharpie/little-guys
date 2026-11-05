@@ -3,8 +3,8 @@
 // A garden of six raised beds sits in the middle of a lawn. Pests crawl in from the edges, each heading for the nearest
 // living bed, and munch it: every bite costs the bed a point of health (3 = thriving, 0 = wilted). When every bed has
 // wilted, the game is over. Each phone is a controller for one little gardener: a joystick to walk, a button to
-// bonk with the rake (tap), and a hold that either charges a spinning rake sweep or, standing in a thirsty bed, waters it
-// back to health. Ripe crops are harvested with a bonk for points. Ladybugs carry power-ups; every 5th wave a beetle queen.
+// bonk with the rake (tap), and hold to charge a spinning rake sweep, anywhere. Stand still in a thirsty bed and your
+// gardener waters it back to health on their own. Ripe crops are harvested with a bonk for points. Ladybugs carry power-ups; every 5th wave a beetle queen.
 
 export const SEATS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'];
 export const W = 16, H = 9, TOP = 0.95;          // the field in world units; y < TOP is under the TV's header
@@ -52,7 +52,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export function newPlayer(name = '', x = 8, y = 4.7) {
   return { name, x, y, vx: 0, vy: 0, fx: 1, fy: 0, ix: 0, iy: 0, btn: false, on: true,
-    cd: 0, bonkT: 0, hurtT: 0, pluckT: 0, holding: false, holdT: 0, charge: 0, mode: '', spinT: 0, spinR: 0, spinDmg: 0, spinHit: null, waterT: 0,
+    cd: 0, bonkT: 0, hurtT: 0, pluckT: 0, holding: false, holdT: 0, charge: 0, mode: '', spinT: 0, spinR: 0, spinDmg: 0, spinHit: null, waterT: 0, watering: false,
     stun: 0, inv: 0, giantT: 0, moving: 0,
     score: 0, combo: 0, comboT: 0, best: 0, kills: 0, hits: 0, spinKills: 0, boomKills: 0, waters: 0, harvests: 0,
     wakes: 0, gifts: 0, ouches: 0, dist: 0, bonks: 0, bowled: 0, multi: 0, multiT: 0, bestMulti: 0, ev: 0, last: '' };
@@ -162,7 +162,7 @@ export function input(G, seat, { x = 0, y = 0, b = 0 } = {}) {
 
 const plotAt = (G, x, y, pad = 0) => G.plots.find(pl => Math.abs(x - pl.x) <= PLOT_W / 2 + pad && Math.abs(y - pl.y) <= PLOT_H / 2 + pad);
 export const standingIn = (G, p) => plotAt(G, p.x, p.y, -0.05);
-// What the button would do right now, for the phone's label: 1 = hold waters this bed, 2 = tap harvests it
+// Where you stand, for the phone's label: 1 = a thirsty bed (stand still to water it), 2 = tap harvests it
 export function context(G, p) {
   if (G.phase === 'lobby' || G.phase === 'over') return 0;
   const pl = standingIn(G, p); if (!pl) return 0;
@@ -172,14 +172,12 @@ export function context(G, p) {
 function press(G, s, p) {
   if (!p.on || p.stun > 0 || p.spinT > 0) return;
   bonk(G, s, p);
-  const pl = standingIn(G, p);
-  p.holding = true; p.holdT = 0; p.charge = 0; p.waterT = 0;
-  p.mode = pl && pl.hp < 3 && G.phase !== 'lobby' && G.phase !== 'over' ? 'water' : 'charge';
+  p.holding = true; p.holdT = 0; p.charge = 0; p.mode = 'charge';
 }
 
 function release(G, s, p) {
   if (p.holding && p.mode === 'charge' && p.charge >= MIN_CHARGE && p.stun <= 0) spin(G, s, p);
-  p.holding = false; p.charge = 0; p.holdT = 0; p.mode = ''; p.waterT = 0;
+  p.holding = false; p.charge = 0; p.holdT = 0; p.mode = '';
 }
 
 function evt(p, what) { p.ev++; p.last = what; }
@@ -357,6 +355,7 @@ function stepPlayer(G, s, p, dt) {
   if (p.combo && (p.comboT -= dt) <= 0) p.combo = 0;
   const ix = p.on ? p.ix : 0, iy = p.on ? p.iy : 0;
   if (!p.on) { p.holding = false; p.charge = 0; }
+  if (p.stun > 0 || !p.on) { p.watering = false; p.waterT = 0; }
   let tx = 0, ty = 0;
   if (p.stun > 0) {
     p.stun = Math.max(0, p.stun - dt);
@@ -377,15 +376,17 @@ function stepPlayer(G, s, p, dt) {
         const c = clamp((p.holdT - HOLD_DELAY) / CHARGE_TIME, 0, 1);
         if (c >= 1 && p.charge < 1) { evt(p, 'charged'); G.log.push(['charged', s]); }
         p.charge = c;
-      } else if (p.mode === 'water') {
-        const pl = standingIn(G, p);
-        if (!pl || pl.hp >= 3) p.waterT = 0;
-        else if ((p.waterT += dt) >= WATER_EVERY) {
-          p.waterT = 0; pl.hp++; pl.wetT = 3; p.waters++; p.score += 20; evt(p, 'water'); G.log.push(['water', s, pl.i, pl.hp]);
-        }
       }
     }
-    const slow = p.holding && p.holdT > HOLD_DELAY ? (p.mode === 'water' ? 0.15 : CHARGE_SLOW) : 1;
+    // standing still in a thirsty bed waters it: no button, so the hold stays free to charge a spin anywhere
+    // (charging, swinging or walking puts the can down)
+    const pl = G.phase !== 'lobby' && G.phase !== 'over' && standingIn(G, p);
+    p.watering = !!(pl && pl.hp < 3 && Math.hypot(ix, iy) < 0.3 && !(p.holding && p.holdT > HOLD_DELAY) && p.bonkT <= 0 && p.spinT <= 0);
+    if (!p.watering) p.waterT = 0;
+    else if ((p.waterT += dt) >= WATER_EVERY) {
+      p.waterT = 0; pl.hp++; pl.wetT = 3; p.waters++; p.score += 20; evt(p, 'water'); G.log.push(['water', s, pl.i, pl.hp]);
+    }
+    const slow = p.holding && p.holdT > HOLD_DELAY ? CHARGE_SLOW : 1;
     tx = ix * SPEED * slow; ty = iy * SPEED * slow;
     if (Math.hypot(ix, iy) > 0.25) { const m = Math.hypot(ix, iy); p.fx = ix / m; p.fy = iy / m; }
   }

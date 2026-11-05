@@ -58,14 +58,17 @@ test('bonking a dizzy friend wakes them', () => {
   assert.equal(q.stun, 0); assert.equal(p.wakes, 1);
 });
 
-test('holding in a thirsty bed waters it; tapping a ripe bed harvests it', () => {
+test('standing still in a thirsty bed waters it; the hold still charges a spin there; tapping a ripe bed harvests it', () => {
   const G = game(), p = G.players.p1, pl = G.plots[0];
   pl.hp = 1; pl.g = 0.3; place(p, pl.x, pl.y);
   assert.equal(context(G, p) & 1, 1);
-  input(G, 'p1', { b: 1 }); run(G, WATER_EVERY * 2 + 0.1);
+  run(G, WATER_EVERY * 2 + 0.1);
   assert.equal(pl.hp, 3); assert.equal(p.waters, 2);
-  input(G, 'p1', { b: 0 }); run(G, 0.3);
-  assert.equal(p.charge, 0, 'watering never charges a spin');
+  pl.hp = 2; input(G, 'p1', { b: 1 }); run(G, WATER_EVERY + 0.2);
+  assert.equal(p.charge, 1, 'the hold charges in a bed too'); assert.equal(pl.hp, 2, 'charging puts the can down');
+  input(G, 'p1', { b: 0 }); run(G, 0.05);
+  assert.ok(p.spinT > 0, 'and lets go into a spin');
+  run(G, 0.5); pl.hp = 2;
   pl.g = 1; assert.equal(context(G, p) & 2, 2);
   tap(G, 'p1');
   assert.equal(pl.g, 0); assert.equal(p.harvests, 1);

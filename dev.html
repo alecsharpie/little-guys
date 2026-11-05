@@ -96,10 +96,10 @@ setInterval(() => {
     const tgt = pests.sort((a, c) => score(a) - score(c))[0];
     if (bed && (!tgt || Math.hypot(tgt.x - me.x, tgt.y - me.y) > 3 || G.phase === 'break')) {
       const inBed = Math.abs(me.x - bed.x) < 0.8 && Math.abs(me.y - bed.y) < 0.5;
-      if (inBed) { pad.set(0, 0, 1); b.watering = true; continue; }
+      if (inBed) { pad.set(0, 0, 0); b.watering = true; continue; }
       b.watering = false; go(pad, me, bed.x, bed.y, 0.1, b, false); continue;
     }
-    if (b.watering) { b.watering = false; pad.set(0, 0, 0); continue; }
+    b.watering = false;
     const ripe = G.plots.find(pl => pl.g >= 1 && pl.hp > 0 && Math.hypot(pl.x - me.x, pl.y - me.y) < 1.6);
     if (ripe && (!tgt || Math.hypot(tgt.x - me.x, tgt.y - me.y) > 1.5)) { go(pad, me, ripe.x, ripe.y, 0.2, b, true); continue; }
     if (!tgt) { pad.set(0, 0, 0); continue; }

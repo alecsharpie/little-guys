@@ -102,7 +102,7 @@
 </div>
 <script type="module">
 import { joinRoom, param, load, save } from './shared/net.js';
-import { SEATS, HOLD_DELAY, CHARGE_TIME, MIN_CHARGE, WATER_EVERY } from './game.js';
+import { SEATS, HOLD_DELAY, CHARGE_TIME, MIN_CHARGE } from './game.js';
 import { TEAMS, frameAt } from './sprites/pix.js';
 import { S as SPR } from './sprites/index.js';
 import { art, dataUrl, skin } from './ui.js';
@@ -192,8 +192,8 @@ function render() {
   const ctx = me ? me[8] : 0;
   btnCtx = ctx;
   const lbl = me && me[6] ? `${art('swirl', 3)}<small>dizzy!</small>`
-    : ctx & 2 ? `${art('carrot', 2)}PICK<small>${ctx & 1 ? 'tap · hold to water' : 'tap'}</small>`
-    : ctx & 1 ? `${art('drop', 3)}WATER<small>hold</small>`
+    : ctx & 2 ? `${art('carrot', 2)}PICK<small>tap · hold to spin</small>`
+    : ctx & 1 ? `BONK<small>${art('drop', 1)} stand still: water</small>`
     : 'BONK<small>hold to spin</small>';
   if ($('lbl').innerHTML !== lbl) $('lbl').innerHTML = lbl;
 
@@ -263,7 +263,7 @@ function feel() {
 
 // ---------- the controller ----------
 // Sends {j:[x,y], b} whenever it changes: the stick at most 20 times a second, the button at once.
-let jx = 0, jy = 0, held = false, sent = '', lastSend = 0, timer = null, btnCtx = 0, pressAt = 0, pressCtx = 0, buzzedFull = false;
+let jx = 0, jy = 0, held = false, sent = '', lastSend = 0, timer = null, btnCtx = 0, pressAt = 0, buzzedFull = false;
 const q = v => Math.round(v * 20) / 20;
 function push(force) {
   if (!net || !seat) return;
@@ -277,7 +277,7 @@ function push(force) {
 function setButton(down) {
   if (down === held) return;
   held = down; $('btn').classList.toggle('down', down); face();
-  if (down) { pressAt = performance.now(); pressCtx = btnCtx; buzzedFull = false; buzz(10); }
+  if (down) { pressAt = performance.now(); buzzedFull = false; buzz(10); }
   push(true);
 }
 
@@ -327,16 +327,16 @@ for (const t of ['gesturestart', 'gesturechange', 'dblclick', 'contextmenu', 'se
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') { stickId = btnId = null; jx = jy = 0; held = false; push(true); rest(); face(); } });
 addEventListener('resize', () => { if (net) layout(); });
 
-// the ring round the button: the spin charging up (or the watering can filling the bed), from the moment you press
+// the ring round the button: the spin charging up, from the moment you press
 (function ring(now) {
   let k = 0;
   if (held) {
     const t = (now - pressAt) / 1000;
-    k = pressCtx & 1 ? ((t % WATER_EVERY) / WATER_EVERY) : Math.max(0, Math.min(1, (t - HOLD_DELAY) / CHARGE_TIME));
-    const full = !(pressCtx & 1) && k >= 1;
+    k = Math.max(0, Math.min(1, (t - HOLD_DELAY) / CHARGE_TIME));
+    const full = k >= 1;
     $('btn').classList.toggle('full', full);
     if (full && !buzzedFull) { buzzedFull = true; buzz(30); }
-    if (!(pressCtx & 1) && k < MIN_CHARGE) k = 0;
+    if (k < MIN_CHARGE) k = 0;
   } else $('btn').classList.remove('full');
   if (net) ringAt(k);
   requestAnimationFrame(ring);

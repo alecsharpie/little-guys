@@ -227,7 +227,7 @@ function drainLog() {
     } else if (k === 'wilt') {
       const [i] = a, pl = G.plots[i]; sfx.wilt(); fx.shake = 14; fx.flash = 0.6; fx.flashColor = '#ff3355';
       popup(pl.x, pl.y - 0.4, `the ${pl.crop}s wilted!`, '#ff8a8a', 1);
-      if (G.plots.filter(p => p.hp > 0).length === 1) banner(`${A_('wilted', 4)}Last bed!<small>hold the button in a wilted bed to water it back</small>`, 2.5);
+      if (G.plots.filter(p => p.hp > 0).length === 1) banner(`${A_('wilted', 4)}Last bed!<small>stand in a wilted bed to water it back</small>`, 2.5);
     } else if (k === 'power') {
       const [kind, s, x, y] = a, [ic, t, sub, c] = POWER[kind];
       sfx.chime(); sfx[kind === 'rain' ? 'rain' : kind === 'bees' ? 'buzz' : kind === 'giant' ? 'grow' : 'heal']();
@@ -250,7 +250,7 @@ function drainLog() {
     } else if (k === 'cleared') {
       const [n, perfect] = a; sfx.cheer();
       if (perfect) for (const pl of G.plots) burst(pl.x, pl.y, ['#ffd23f', '#ffffff'], 12, 80, 70);
-      banner(perfect ? `${A_('star', 4)}Perfect wave!${A_('star', 4)}<small>not a single nibble · +${100 * n} each</small>` : `Wave ${n} cleared!<small>water the thirsty beds, pick the ripe ones</small>`, 3);
+      banner(perfect ? `${A_('star', 4)}Perfect wave!${A_('star', 4)}<small>not a single nibble · +${100 * n} each</small>` : `Wave ${n} cleared!<small>stand in thirsty beds to water them, pick the ripe ones</small>`, 3);
     } else if (k === 'over') {
       sfx.stopMusic(); sfx.hurt(); ready.clear(); overAt = performance.now(); renderOverlays();
     }
@@ -400,8 +400,8 @@ function frame(now) {
   }
   drainLog();
   tickFx(dt);
-  // a watering can pours while you hold it over a bed
-  for (const p of Object.values(G.players)) if (p.holding && p.mode === 'water' && p.holdT > 0.16 && Math.random() < dt * 14) drop(p.x + Math.sign(p.fx || 1) * 0.27, p.y - 0.05, 5);
+  // a watering can pours while you stand in a thirsty bed
+  for (const p of Object.values(G.players)) if (p.watering && p.waterT > 0.12 && Math.random() < dt * 14) drop(p.x + Math.sign(p.fx || 1) * 0.27, p.y - 0.05, 5);
   drawField(ctx, G, { W: cv.width, H: cv.height, live, name: nameOf, t: clock });
   if (mode !== 'lobby') renderHud();
   $('banner').style.opacity = now < bannerUntil ? 1 : 0;
